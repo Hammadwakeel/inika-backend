@@ -31,7 +31,7 @@
           "alias": "GPT-4o Mini"
         }
       },
-      "workspace": "/Users/shivang/openclaw/workspace",
+      "workspace": "/home/dev/inika-bot/workspace",
       "compaction": {
         "mode": "safeguard"
       },
@@ -45,7 +45,7 @@
     "profile": "messaging"
   },
   "messages": {
-    "ackReactionScope": "group-mentions"
+    "ackReactionScope": "all"
   },
   "commands": {
     "native": "auto",
