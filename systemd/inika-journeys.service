@@ -1,0 +1,10 @@
+[Unit]
+Description=Inika Resorts Guest Journey Scheduler
+
+[Service]
+Type=oneshot
+ExecStart=/home/dev/inika-bot/journeys-runner.sh
+Environment=OPENCLAW_NO_RESPAWN=1
+WorkingDirectory=/home/dev/inika-bot
+StandardOutput=append:/home/dev/inika-bot/journeys/journeys.log
+StandardError=append:/home/dev/inika-bot/journeys/journeys.log

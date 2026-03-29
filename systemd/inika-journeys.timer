@@ -1,0 +1,10 @@
+[Unit]
+Description=Inika Resorts Guest Journey Scheduler — every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
