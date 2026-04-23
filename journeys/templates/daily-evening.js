@@ -6,18 +6,17 @@
 
 const { applyPersonalization } = require('../../lib/personalization');
 
-const TEMPLATE = `Good evening, [Name]! 🌅
+const TEMPLATE = `Good evening, [Name]! 🌴
 
-How was your [DayLabel] in Coorg? We hope it was wonderful. 🌿
-
-Here\'s what\'s special this evening:
-
-• Dinner at The Coriander: Open until 10 PM 🍽️
-• The Cabana poolside is a perfect spot for sunset drinks
+[WeatherCondition] at [WeatherTemp] — perfect for an outdoor dinner or stargazing by the pool.
 
 [EveningNote]
 
-Reply here or call [ResortPhone] for reservations and any questions. Enjoy your evening! 🏔️
+[DayLabel] at Inika Resorts 🌿
+
+What's on your agenda for tomorrow? We can arrange it — just reply here or call [ResortPhone].
+
+Enjoy your evening! 🏔️
 
 — Inika`;
 

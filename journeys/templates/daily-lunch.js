@@ -5,14 +5,13 @@
 
 const { applyPersonalization } = require('../../lib/personalization');
 
-const TEMPLATE = `Hi [Name]! 🍽️
+const TEMPLATE = `Happy lunch hour, [Name]! 🍽️
 
-Lunch is served!
+[WeatherCondition] at [WeatherTemp] — stay hydrated and beat the heat!
 
-📍 The Coriander — multi-cuisine, local Kodava specialties
+Your dining options today:
+📍 The Coriander — multi-cuisine with local Kodava specialties
 📍 The Cabana — poolside platters and fresh juices by the water
-
-Today\'s specials feature fresh, locally sourced ingredients from the Coorg region. 🌿
 
 Reservations welcome — just reply here or call [ResortPhone].
 

@@ -1,6 +1,17 @@
 {
-  "sent": {},
+  "sent": {
+    "vinston-test-001": {
+      "checkin-late": "2026-04-10T10:45:04.742Z",
+      "checkin-morning": "2026-04-10T18:30:07.135Z",
+      "daily-lunch": "2026-04-10T23:30:03.187Z",
+      "checkin-afternoon": "2026-04-11T00:30:04.599Z",
+      "checkin-evening": "2026-04-11T05:30:02.628Z",
+      "daily-evening": "2026-04-11T05:30:02.937Z"
+    }
+  },
   "opt_outs": {},
   "recent_replies": {},
-  "evening_rotation": {}
+  "evening_rotation": {
+    "vinston-test-001": "campfire"
+  }
 }

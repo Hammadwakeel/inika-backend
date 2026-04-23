@@ -1,25 +1,20 @@
 /**
  * Template: checkin-late
  * Sent: Check-in day, 10 PM IST — for guests arriving late at night.
- * Tone is calm, minimal — don\'t overwhelm a tired traveler.
+ * Tone is calm and minimal — don't overwhelm a tired traveler.
  */
 
 const { applyPersonalization } = require('../../lib/personalization');
 
-const TEMPLATE = `Hi [Name]! 🌙
+const TEMPLATE = `Welcome, [Name]! 🌙
 
-Welcome to [ResortName] in Coorg — you made it!
+Check-in · Day 1 at Inika Resorts
 
-Your cottage is ready for you:
-🏡 [Room]
+It's a mild [WeatherTemp] outside — a cool, peaceful night in Coorg.
 
-Rest up tonight. Tomorrow, the real adventure begins. ☕🌿
+Your [Room] is prepared and turndown service is complete. Rest well — breakfast starts at 7 AM at The Coriander.
 
-Breakfast is served from 7:30 AM at The Coriander.
-
-If you need anything overnight, call the front desk at [ResortPhone] — we\'re always here.
-
-Sweet dreams from Coorg! 🌙
+We'll be here if you need anything overnight. Sweet dreams! 🌙
 
 — Inika`;
 

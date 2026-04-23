@@ -5,23 +5,22 @@
 
 const { applyPersonalization } = require('../../lib/personalization');
 
-const TEMPLATE = `Good morning, [Name]! ☀️
+const TEMPLATE = `Good morning, [Name]! Checking out today? 🧳
 
-Today is your last day at [ResortName] — check-out by [CheckOutTime] IST.
+[WeatherCondition] at [WeatherTemp] — a lovely day to depart from Coorg.
 
-We hope your stay was everything you hoped for and more. 🌿
+Late checkout available until 1 PM upon request — just let us know.
 
 A few reminders:
-
 • Please settle your bill at the front desk before departure
 • Luggage can be stored at the front desk if you have a late departure
 • Breakfast is served until 10 AM ☕
 
-[GroupGreeting]If you have a moment before you go, we\'d love your feedback on your stay — just reply here with any comments or suggestions.
+[GroupGreeting] Was everything to your satisfaction? We'd love to hear your thoughts — and you can share a review here: [ReviewLink]
 
-It was truly a pleasure hosting you. Until next time! 🏔️
+It was truly a pleasure hosting you in your [Room]. Safe travels, and we hope to welcome you back! 🏔️
 
-— Inika, [ResortName]`;
+— Inika Resorts, Coorg`;
 
 function render(booking, extras = {}) {
   return applyPersonalization(TEMPLATE, booking, extras).trim();

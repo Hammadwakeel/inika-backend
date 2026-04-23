@@ -5,30 +5,25 @@
 
 const { applyPersonalization } = require('../../lib/personalization');
 
-const TEMPLATE = `Hi [Name]! 🌿
+const TEMPLATE = `Good afternoon, [Name]! ☀️
 
-Your cottage is ready and waiting for you!
+Check-in · Day 1 at Inika Resorts
 
-🏡 [Room] — checked in [CheckIn]
-[GroupGreeting]
+[WeatherCondition] and [WeatherTemp] — ideal conditions to cool off at our infinity pool or enjoy a lazy afternoon on the veranda.
 
-You\'ve arrived at a beautiful time of day in Coorg. A few quick tips:
+Your [Room] is all set for you. We hope you find it comfortable and cozy.
 
-• Lunch at The Coriander is available now — authentic Kodava flavors and more 🌿
-• The pool is perfect right now if you\'d like a dip
-• The outdoor cafe is open for fresh coffee and light snacks
+[WelcomeBack][Acknowledgment][OccasionMention]
+[GroupGreeting][RequestsNote]
 
-[Acknowledgment]
+Any questions? Our concierge team is just a message away — reply here or call [ResortPhone].
 
-If you need anything at all, reply here or reach us at [ResortPhone]. Enjoy your first moments in Coorg!
+Enjoy your afternoon! 🌿
 
 — Inika`;
 
 function render(booking, extras = {}) {
-  const acknowledgment = booking.booking_source !== 'direct'
-    ? `All confirmed from ${booking.booking_source} — you\'re all set! `
-    : '';
-  return applyPersonalization(TEMPLATE, { ...booking, acknowledgment }, extras).trim();
+  return applyPersonalization(TEMPLATE, booking, extras).trim();
 }
 
 module.exports = { render };

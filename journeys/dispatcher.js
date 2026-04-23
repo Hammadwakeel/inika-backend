@@ -23,11 +23,13 @@ async function sendMessage(to, body) {
   const endpoint = `${GATEWAY_HOST}/tools/invoke`;
 
   const payload = {
-    tool: 'sessions_send',
+    tool: 'message',
     args: {
-      sessionKey: SESSION_KEY,
+      action: 'send',
+      channel: 'whatsapp',
+      account: 'default',
+      to,
       message: body,
-      ...(to ? { peerNumber: to } : {}),
     },
   };
 

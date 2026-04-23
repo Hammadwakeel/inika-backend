@@ -7,20 +7,18 @@ const { applyPersonalization } = require('../../lib/personalization');
 
 const TEMPLATE = `Good morning, [Name]! ☀️
 
-[DayLabel] at [ResortName] — hope you slept well in Coorg! 🌿
+[DayLabel] at Inika Resorts 🌿
 
-[WeatherNote]
+[WeatherCondition] and [WeatherTemp] in Coorg — a beautiful day ahead!
 
-Here\'s your day at a glance:
-
-• Breakfast: The Coriander, 7:30 – 10 AM ☕
-• Lunch: The Coriander & The Cabana, 12 – 3 PM 🍽️
-• Pool: Open all day 🏊
-• Guided experiences available — just ask!
+Here's what's on today:
+• Complimentary yoga at 8 AM — join us if you like!
+• Breakfast at The Coriander, 7:30 – 10 AM
+• Pool and grounds open all day 🏊
 
 Our team is on hand for anything you need. Reply here or call [ResortPhone].
 
-Enjoy every moment! 🏔️
+Enjoy every moment! 🌿
 
 — Inika`;
 

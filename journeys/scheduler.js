@@ -24,8 +24,6 @@ const weather = require('../lib/weather');
 
 // Load templates
 const TEMPLATES = {
-  'booking-confirmed': require('./templates/booking-confirmed'),
-  'pre-arrival': require('./templates/pre-arrival'),
   'checkin-morning': require('./templates/checkin-morning'),
   'checkin-afternoon': require('./templates/checkin-afternoon'),
   'checkin-evening': require('./templates/checkin-evening'),
@@ -45,6 +43,7 @@ const RECENT_REPLY_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 // CLI flags
 const DRY_RUN = process.argv.includes('--dry-run');
 const FORCE = process.argv.includes('--force');
+const FORCE_SEND = process.env.FORCE_SEND === '1';
 
 /**
  * Load state from disk.
@@ -185,19 +184,19 @@ async function run() {
     const allTouchpoints = timing.computeTouchpoints(booking);
 
     // Recent reply check (skip all for this guest if they replied recently)
-    if (dedup.hasRecentReply(phone, RECENT_REPLY_WINDOW_MS)) {
+    if (!FORCE_SEND && dedup.hasRecentReply(phone, RECENT_REPLY_WINDOW_MS)) {
       logSkipped('recent-reply');
       continue;
     }
 
     // Stay-level limit
-    if (!FORCE && staySendCount(state, id) >= MAX_MESSAGES_PER_STAY) {
+    if (!FORCE && !FORCE_SEND && staySendCount(state, id) >= MAX_MESSAGES_PER_STAY) {
       logSkipped('stay-limit');
       continue;
     }
 
     // Daily global limit
-    if (!FORCE && todayGlobalSendCount(state) >= MAX_MESSAGES_PER_DAY) {
+    if (!FORCE && !FORCE_SEND && todayGlobalSendCount(state) >= MAX_MESSAGES_PER_DAY) {
       logSkipped('daily-limit');
       continue;
     }
@@ -205,7 +204,6 @@ async function run() {
     // --- Determine which touchpoints to evaluate ---
     const isCheckinDay = timing.sameDate(check_in, todayIST);
     const isCheckoutDay = timing.sameDate(check_out, todayIST);
-    const isPreArrivalDay = timing.sameDate(timing.addDays(check_in, -1), todayIST);
     const isPostStayDay = timing.sameDate(timing.addDays(check_out, 1), todayIST);
     const isDuringStay = check_in <= todayIST && todayIST <= check_out;
 
@@ -224,26 +222,20 @@ async function run() {
 
     for (const tp of todaysTouchpoints) {
       // Already sent?
-      if (!FORCE && dedup.wasSent(id, tp.type)) {
+      if (!FORCE && !FORCE_SEND && dedup.wasSent(id, tp.type)) {
         logSkipped('already-sent');
         continue;
       }
 
       // Is it within the time window?
-      if (!timing.isInWindow(currentUTCHour, tp.type, tp.time)) {
+      if (!FORCE_SEND && !timing.isInWindow(currentUTCHour, tp.type, tp.time)) {
         logSkipped('outside-window');
         continue;
       }
 
       // Quiet hours — skip non-critical messages (queue for morning)
-      if (timing.isQuietHours() && !tp.type.startsWith('checkin-')) {
+      if (!FORCE_SEND && timing.isQuietHours() && !tp.type.startsWith('checkin-')) {
         logSkipped('quiet-hours');
-        continue;
-      }
-
-      // Pre-arrival: only send if check-in is tomorrow (not already arrived)
-      if (tp.type === 'pre-arrival' && !isPreArrivalDay) {
-        logSkipped('not-pre-arrival-day');
         continue;
       }
 
@@ -276,6 +268,10 @@ async function run() {
         extras.currentDay = timing.nightCount(check_in, todayIST) + 1;
       }
 
+      if (tp.type === 'checkout-morning') {
+        const nights = timing.nightCount(check_in, todayIST);
+        extras.currentDay = nights;
+      }
       if (tp.type === 'daily-morning' || tp.type === 'daily-lunch') {
         extras.currentDay = timing.nightCount(check_in, todayIST) + 1;
       }

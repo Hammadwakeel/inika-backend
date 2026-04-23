@@ -8,19 +8,21 @@ const { applyPersonalization } = require('../../lib/personalization');
 
 const TEMPLATE = `Hi [Name]! 🌿
 
-The whole team at [ResortName] in Coorg wanted to say a heartfelt thank you for choosing us.
+The whole team at Inika Resorts in Coorg wanted to say a heartfelt thank you for choosing us.
 
-We hope your time here was peaceful, restorative, and full of beautiful moments. 🌄
+We hope your time in your [Room] was peaceful, restorative, and full of beautiful moments. 🌄
 
-If you have a few minutes, we\'d be so grateful for your feedback — just reply here or leave us a review online. Your words help other travelers discover Coorg.
+If you have a moment, we'd be so grateful for your feedback:
+👉 [ReviewLink]
 
-And when you\'re ready for your next escape, we\'ll be right here waiting. Use code RETURN10 for a 10% discount on your next booking! 🌿
+Your words help other travelers discover Coorg — and mean the world to us.
+
+And when you're ready for your next escape, we'll be right here waiting. Use code RETURN10 for a 10% discount on your next booking! 🌿
 
 Until the mountains call again,
 
-— Veema & the Inika team
-[ResortName] | [ResortLocation]
-[ResortPhone] | veema@inikaresorts.com`;
+— Veema & the Inika Resorts team 🌺
++91 90357 40031 | veema@inikaresorts.com`;
 
 function render(booking, extras = {}) {
   return applyPersonalization(TEMPLATE, booking, extras).trim();
