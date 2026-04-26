@@ -62,15 +62,15 @@ jobs:
 
       - name: Sync files to VM
         run: |
-          rsync -avz --exclude '.git' \
-                     --exclude '__pycache__' \
-                     --exclude '*.pyc' \
-                     --exclude '.venv' \
-                     --exclude 'node_modules' \
-                     --exclude '.env' \
-                     --exclude '*.log' \
-                     --exclude 'data/' \
-                     ./ ${{ env.SSH_USER }}@${{ vars.SSH_HOST }}:${{ env.DEPLOY_PATH }}/
+          tar --exclude='.git' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='.venv' \
+              --exclude='node_modules' \
+              --exclude='.env' \
+              --exclude='*.log' \
+              --exclude='data/' \
+              -czf - . | ssh vm "mkdir -p ${{ env.DEPLOY_PATH }} && cd ${{ env.DEPLOY_PATH }} && tar -xzf -"
 
       - name: Install Python dependencies on VM
         run: |
@@ -82,13 +82,13 @@ jobs:
       - name: Create .env on VM
         run: |
           ssh vm "cat > ${{ env.DEPLOY_PATH }}/backend/.env << 'ENDFILE'
-          AXIOM_JWT_SECRET=${{ secrets.AXIOM_JWT_SECRET }}
-          AXIOM_JWT_EXPIRE_MINUTES=${{ secrets.AXIOM_JWT_EXPIRE_MINUTES }}
-          AXIOM_COOKIE_SECURE=true
-          AXIOM_ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
-          OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
-          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
-          INIKA_API_KEY=${{ secrets.INIKA_API_KEY }}
+          export AXIOM_JWT_SECRET=${{ secrets.AXIOM_JWT_SECRET }}
+          export AXIOM_JWT_EXPIRE_MINUTES=${{ secrets.AXIOM_JWT_EXPIRE_MINUTES }}
+          export AXIOM_COOKIE_SECURE=true
+          export AXIOM_ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+          export OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          export TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+          export INIKA_API_KEY=${{ secrets.INIKA_API_KEY }}
           ENDFILE"
 
       - name: Restart backend service
