@@ -74,7 +74,9 @@ jobs:
 
       - name: Install Python dependencies on VM
         run: |
-          ssh vm "sudo apt-get update && sudo apt-get install -y python3-venv python3-pip && \
+          # Wait for any ongoing apt processes to finish
+          ssh vm "while ps aux | grep -v grep | grep -q 'apt-get\\|dpkg'; do sleep 2; done; \
+                 sudo apt-get update && sudo apt-get install -y python3-venv python3-pip && \
                  cd ${{ env.DEPLOY_PATH }} && \
                  rm -rf venv && \
                  python3 -m venv venv && \
