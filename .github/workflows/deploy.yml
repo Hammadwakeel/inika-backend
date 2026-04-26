@@ -1,0 +1,126 @@
+name: Deploy to GCP VM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SSH_USER: antigravitywoman
+  DEPLOY_PATH: /home/antigravitywoman/axiom-bot
+  BACKEND_PORT: 8000
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Validate environment variables
+        run: |
+          if [ -f backend/.env ]; then
+            echo "Error: .env file found in repository - remove it before deploying"
+            exit 1
+          fi
+
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ vars.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Configure remote server
+        run: |
+          cat > ~/.ssh/config << EOF
+          Host vm
+            HostName ${{ vars.SSH_HOST }}
+            User ${{ env.SSH_USER }}
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+
+      - name: Set up SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Create deployment directory
+        run: ssh vm "mkdir -p ${{ env.DEPLOY_PATH }}"
+
+      - name: Sync files to VM
+        run: |
+          rsync -avz --exclude '.git' \
+                     --exclude '__pycache__' \
+                     --exclude '*.pyc' \
+                     --exclude '.venv' \
+                     --exclude 'node_modules' \
+                     --exclude '.env' \
+                     --exclude '*.log' \
+                     --exclude 'data/' \
+                     ./ ${{ env.SSH_USER }}@${{ vars.SSH_HOST }}:${{ env.DEPLOY_PATH }}/
+
+      - name: Install Python dependencies on VM
+        run: |
+          ssh vm "cd ${{ env.DEPLOY_PATH }} && \
+                 python3 -m venv venv && \
+                 source venv/bin/activate && \
+                 pip install -r backend/requirements.txt 2>/dev/null || pip install fastapi uvicorn sqlalchemy python-jose passlib python-multipart"
+
+      - name: Create .env on VM
+        run: |
+          ssh vm "cat > ${{ env.DEPLOY_PATH }}/backend/.env << 'ENDFILE'
+          AXIOM_JWT_SECRET=${{ secrets.AXIOM_JWT_SECRET }}
+          AXIOM_JWT_EXPIRE_MINUTES=${{ secrets.AXIOM_JWT_EXPIRE_MINUTES }}
+          AXIOM_COOKIE_SECURE=true
+          AXIOM_ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+          OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+          INIKA_API_KEY=${{ secrets.INIKA_API_KEY }}
+          ENDFILE"
+
+      - name: Restart backend service
+        run: |
+          ssh vm "cd ${{ env.DEPLOY_PATH }}/backend && \
+                 pkill -f 'uvicorn' 2>/dev/null || true && \
+                 source ../venv/bin/activate && \
+                 nohup uvicorn main:app --host 0.0.0.0 --port ${{ env.BACKEND_PORT }} > ../backend.log 2>&1 &"
+
+      - name: Health check
+        run: |
+          sleep 5
+          for i in {1..10}; do
+            if curl -sf http://${{ vars.SSH_HOST }}:${{ env.BACKEND_PORT }}/health/live > /dev/null; then
+              echo "Backend is healthy!"
+              exit 0
+            fi
+            echo "Waiting for backend... attempt $i"
+            sleep 3
+          done
+          echo "Health check failed"
+          ssh vm "tail -50 ${{ env.DEPLOY_PATH }}/backend.log"
+          exit 1
+
+      - name: Show deployment status
+        if: success()
+        run: |
+          echo "Deployment successful!"
+          echo "Backend running at: http://${{ vars.SSH_HOST }}:${{ env.BACKEND_PORT }}"
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "Deployment failed. Checking logs..."
+          ssh vm "tail -100 ${{ env.DEPLOY_PATH }}/backend.log" || echo "Could not fetch logs"
