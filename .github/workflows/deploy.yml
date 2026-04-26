@@ -74,10 +74,12 @@ jobs:
 
       - name: Install Python dependencies on VM
         run: |
-          ssh vm "cd ${{ env.DEPLOY_PATH }} && \
+          ssh vm "sudo apt-get update && sudo apt-get install -y python3-venv python3-pip && \
+                 cd ${{ env.DEPLOY_PATH }} && \
+                 rm -rf venv && \
                  python3 -m venv venv && \
                  source venv/bin/activate && \
-                 pip install -r backend/requirements.txt 2>/dev/null || pip install fastapi uvicorn sqlalchemy python-jose passlib python-multipart"
+                 pip install fastapi uvicorn sqlalchemy python-jose passlib python-multipart pydantic slowapi httpx psutil"
 
       - name: Create .env on VM
         run: |
