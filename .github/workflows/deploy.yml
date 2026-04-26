@@ -74,16 +74,11 @@ jobs:
 
       - name: Install Python dependencies on VM
         run: |
-          # First check if venv exists and is usable
-          ssh vm "if [ -d ${{ env.DEPLOY_PATH }}/venv ] && [ -f ${{ env.DEPLOY_PATH }}/venv/bin/activate ]; then \
-                     echo 'Using existing venv'; \
-                     source ${{ env.DEPLOY_PATH }}/venv/bin/activate && pip install --no-cache-dir fastapi uvicorn sqlalchemy python-jose passlib python-multipart pydantic slowapi httpx psutil 2>/dev/null || true; \
-                   else \
-                     echo 'Creating new venv'; \
-                     cd ${{ env.DEPLOY_PATH }} && python3 -m venv venv && \
-                     source venv/bin/activate && pip install --no-cache-dir --upgrade pip && \
-                     pip install --no-cache-dir fastapi uvicorn sqlalchemy python-jose passlib python-multipart pydantic slowapi httpx psutil; \
-                   fi"
+          ssh vm "cd ${{ env.DEPLOY_PATH }} && \
+                 python3 -m venv venv && \
+                 source venv/bin/activate && \
+                 pip install --no-cache-dir --upgrade pip && \
+                 pip install --no-cache-dir fastapi uvicorn sqlalchemy python-jose passlib python-multipart pydantic slowapi httpx psutil"
 
       - name: Create .env on VM
         run: |
