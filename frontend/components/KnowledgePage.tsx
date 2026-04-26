@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import AppNav from "./AppNav";
-import { Brain, Upload, FileText, Sparkles, Save, Loader2, Database, Trash2 } from "lucide-react";
+import { Brain, Upload, FileText, Sparkles, Save, Loader2, Database, Trash2, Bot } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -39,6 +39,15 @@ export default function KnowledgePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [identityDirty, setIdentityDirty] = useState(false);
+  const [agentEnabled, setAgentEnabled] = useState(false);
+  const [agentSettings, setAgentSettings] = useState({
+    enabled: false,
+    response_delay_seconds: 3,
+    use_knowledge_base: true,
+    use_web_search: true,
+    fallback_message: "Thanks for your message! A team member will get back to you shortly.",
+  });
+  const [savingAgent, setSavingAgent] = useState(false);
 
   useEffect(() => {
     const tenant = window.localStorage.getItem("axiom_tenant_id");
@@ -111,6 +120,62 @@ export default function KnowledgePage() {
       source.close();
     };
   }, [tenantId, identityDirty]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    const tok = window.localStorage.getItem("axiom_token") || '';
+    fetch(`${API_BASE_URL}/agent/settings?tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(tok)}`)
+      .then(res => res.json())
+      .then(data => {
+        setAgentEnabled(data.enabled || false);
+        setAgentSettings({
+          enabled: data.enabled || false,
+          response_delay_seconds: data.response_delay_seconds || 3,
+          use_knowledge_base: data.use_knowledge_base !== false,
+          use_web_search: data.use_web_search !== false,
+          fallback_message: data.fallback_message || "Thanks for your message! A team member will get back to you shortly.",
+        });
+      })
+      .catch(() => {});
+  }, [tenantId]);
+
+  const toggleAgent = async () => {
+    const newEnabled = !agentEnabled;
+    setAgentEnabled(newEnabled);
+    setAgentSettings({ ...agentSettings, enabled: newEnabled });
+    const tok = window.localStorage.getItem("axiom_token") || '';
+    await fetch(`${API_BASE_URL}/agent/settings`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        ...agentSettings,
+        enabled: newEnabled,
+      }),
+    });
+  };
+
+  const saveAgentSettings = async () => {
+    if (!tenantId) return;
+    setSavingAgent(true);
+    try {
+      const tok = window.localStorage.getItem("axiom_token") || '';
+      const response = await fetch(`${API_BASE_URL}/agent/settings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          ...agentSettings,
+        }),
+      });
+      if (response.ok) {
+        setAgentEnabled(agentSettings.enabled);
+      }
+    } catch {}
+    setSavingAgent(false);
+  };
 
   const onSaveIdentity = async () => {
     if (!tenantId) return;
@@ -230,6 +295,11 @@ export default function KnowledgePage() {
                 label="STATUS"
                 value={processing ? "PROCESSING" : "IDLE"}
                 ok={!processing}
+              />
+              <StatusBadge
+                label="AGENT"
+                value={agentEnabled ? "ACTIVE" : "OFF"}
+                ok={agentEnabled}
               />
             </div>
           </div>
@@ -452,6 +522,92 @@ export default function KnowledgePage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* AI Agent Settings */}
+          <div className="border border-black">
+            <div className="border-b border-black bg-black px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-white" />
+                <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-white">
+                  AI Agent Settings
+                </h2>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-mono text-sm font-medium">Auto-Reply Agent</p>
+                  <p className="font-mono text-xs text-gray-500">Automatically respond to customer messages</p>
+                </div>
+                <button
+                  onClick={toggleAgent}
+                  className={`relative h-6 w-12 border-2 transition-all ${
+                    agentEnabled ? "border-green-500 bg-green-500" : "border-gray-300 bg-gray-100"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 border border-black bg-white transition-all ${
+                      agentEnabled ? "left-[calc(100%-18px)]" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="flex items-center gap-3 border border-gray-200 p-3">
+                  <input
+                    type="checkbox"
+                    id="useKb"
+                    checked={agentSettings.use_knowledge_base}
+                    onChange={(e) => setAgentSettings({ ...agentSettings, use_knowledge_base: e.target.checked })}
+                    className="h-4 w-4 accent-black"
+                  />
+                  <label htmlFor="useKb" className="font-mono text-sm">Use Knowledge Base</label>
+                </div>
+                <div className="flex items-center gap-3 border border-gray-200 p-3">
+                  <input
+                    type="checkbox"
+                    id="useWeb"
+                    checked={agentSettings.use_web_search}
+                    onChange={(e) => setAgentSettings({ ...agentSettings, use_web_search: e.target.checked })}
+                    className="h-4 w-4 accent-black"
+                  />
+                  <label htmlFor="useWeb" className="font-mono text-sm">Use Web Search</label>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block font-mono text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Fallback Message
+                </label>
+                <input
+                  type="text"
+                  value={agentSettings.fallback_message}
+                  onChange={(e) => setAgentSettings({ ...agentSettings, fallback_message: e.target.value })}
+                  placeholder="Message when agent can't help..."
+                  className="w-full border border-black px-4 py-3 font-mono text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <button
+                onClick={saveAgentSettings}
+                disabled={savingAgent}
+                className="flex w-full items-center justify-center border border-black py-3 px-4 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
+              >
+                {savingAgent ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    SAVING...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Save className="h-4 w-4" />
+                    SAVE AGENT SETTINGS
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>
