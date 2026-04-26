@@ -48,6 +48,9 @@ jobs:
             IdentityFile ~/.ssh/id_rsa
             StrictHostKeyChecking no
             UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 60
+            ServerAliveCountMax 5
+            ConnectTimeout 30
           EOF
 
       - name: Set up SSH key
@@ -58,7 +61,10 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
       - name: Create deployment directory
-        run: ssh vm "mkdir -p ${{ env.DEPLOY_PATH }}"
+        run: |
+          echo "Checking VM connectivity..."
+          ssh vm "echo 'VM is accessible' && uname -a && whoami"
+          ssh vm "mkdir -p ${{ env.DEPLOY_PATH }}"
 
       - name: Sync files to VM
         run: |
