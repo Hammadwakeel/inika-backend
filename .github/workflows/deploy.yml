@@ -101,8 +101,15 @@ jobs:
         run: |
           ssh vm "cd ${{ env.DEPLOY_PATH }}/backend && \
                  pkill -f 'uvicorn' 2>/dev/null || true && \
+                 pkill -f 'python.*main' 2>/dev/null || true && \
+                 sleep 2 && \
                  source ../venv/bin/activate && \
-                 nohup uvicorn main:app --host 0.0.0.0 --port ${{ env.BACKEND_PORT }} > ../backend.log 2>&1 &"
+                 echo 'Starting uvicorn...' && \
+                 ls -la ../venv/bin/ && \
+                 python --version && \
+                 nohup ../venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port ${{ env.BACKEND_PORT }} > ../backend.log 2>&1 & \
+                 sleep 3 && \
+                 ps aux | grep uvicorn | grep -v grep"
 
       - name: Health check
         run: |
