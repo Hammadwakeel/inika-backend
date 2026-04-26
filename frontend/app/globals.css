@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #000000;
+    --color-primary-dark: #18181b;
+    --color-surface: #ffffff;
+    --color-border: #000000;
+    --color-text: #000000;
+    --color-text-muted: #4B5563;
+    --radius-sm: 0;
+    --radius-md: 0;
+    --radius-lg: 0;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: var(--color-text);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3
+           bg-black text-white font-mono font-semibold
+           transition-all duration-150 ease-out
+           hover:bg-gray-900 active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3
+           bg-white text-black font-mono font-semibold
+           border border-black
+           transition-all duration-150 ease-out
+           hover:bg-gray-50 active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-4 py-2
+           text-black font-mono font-medium
+           transition-all duration-150 ease-out
+           hover:bg-gray-100 active:scale-[0.98];
+  }
+
+  .card {
+    @apply bg-white border border-black transition-all duration-150;
+  }
+
+  .card-hover {
+    @apply hover:translate-y-[-2px] hover:shadow-lg cursor-pointer;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border border-black text-black
+           font-mono text-sm placeholder:text-gray-400
+           transition-all duration-150 ease-out
+           focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-0
+           hover:border-gray-600;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 font-mono text-xs font-medium border border-black;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-black border-green-300;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-black border-yellow-300;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-black border-blue-300;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-black tracking-tight font-mono;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-gray-500 mt-1 font-mono;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-black to-gray-600 bg-clip-text text-transparent;
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-md bg-white/90 border border-black;
+  }
+
+  /* Industrial Monospace Theme */
+  .mono-heading {
+    @apply font-mono font-bold tracking-tight uppercase;
+  }
+
+  .mono-body {
+    @apply font-mono text-sm;
+  }
+
+  .mono-code {
+    @apply font-mono text-xs text-gray-500;
+  }
+
+  /* Grid Lines Effect */
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+@layer utilities {
+  .animate-stagger > * {
+    animation: slideUp 0.3s ease-out backwards;
+  }
+
+  .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 75ms; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 150ms; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 225ms; }
+
+  /* Industrial Animations */
+  .animate-border-pulse {
+    animation: borderPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes borderPulse {
+  0%, 100% { border-color: #000; }
+  50% { border-color: #666; }
+}
+
+/* Custom scrollbar - Industrial */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fff;
+  border-left: 1px solid #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}

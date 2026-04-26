@@ -1,0 +1,15 @@
+{
+  "name": "axiom-backend-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "bridge:qr": "node whatsapp_bridge.js --tenant tenant-demo --tenantDir ../data/tenants/tenant-demo --action qr",
+    "bridge:chats": "node whatsapp_bridge.js --tenant tenant-demo --tenantDir ../data/tenants/tenant-demo --action chats"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "pino": "^9.7.0",
+    "qrcode": "^1.5.4"
+  }
+}
