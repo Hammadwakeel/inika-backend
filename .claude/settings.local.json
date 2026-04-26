@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(node --check whatsapp_bridge.js)",
+      "Bash(npm run *)",
+      "Bash(AXIOM_JWT_SECRET=\"test-secret-key-for-development-only-min32chars\" python3 *)",
+      "Bash(PYTHONPATH=/home/hammad/Downloads/work/Job/inika-bot/backend AXIOM_JWT_SECRET=\"test-secret-key-for-development-only-min32chars\" python3 -c \"from main import app; print\\('OK'\\)\")",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H 'Content-Type: application/json' -d '{\"tenant_id\":\"test-tenant-123\",\"username\":\"testuser\",\"password\":\"Test1234!\"}')",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit: Axiom AI Concierge Platform *)"
+    ]
+  }
+}
