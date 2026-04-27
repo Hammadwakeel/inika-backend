@@ -88,6 +88,15 @@ uploads/
 *.db
 *.db-journal
 
+# SSL Certificates (real ones, not committed)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+!nginx/ssl/.gitkeep
+
+# Docker
+.docker/
+
 # Coverage
 htmlcov/
 .coverage

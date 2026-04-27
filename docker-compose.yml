@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: inika-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - AXIOM_JWT_SECRET=${AXIOM_JWT_SECRET}
+      - AXIOM_COOKIE_SECURE=false
+      - AXIOM_ALLOWED_ORIGINS=http://localhost,https://inika.example.com
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - INIKA_API_KEY=${INIKA_API_KEY}
+      - AXIOM_JWT_EXPIRE_MINUTES=60
+    volumes:
+      - ./data:/app/data
+      - ./backend/.env:/app/backend/.env:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - inika-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: inika-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - inika-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: inika-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - inika-network
+
+networks:
+  inika-network:
+    driver: bridge
