@@ -10,6 +10,7 @@ from backend.app.routes.journey import router as journey_router
 from backend.app.routes.booking import router as booking_router
 from backend.app.routes.dashboard import router as dashboard_router
 from backend.app.routes.rag import router as rag_router
+from backend.app.routes.health import router as health_router
 
 app = FastAPI(title="Axiom Platform API", version="1.0.0-AXIOM")
 
@@ -44,4 +45,5 @@ app.include_router(journey_router)
 app.include_router(booking_router)
 app.include_router(dashboard_router)
 app.include_router(rag_router)
+app.include_router(health_router)
 
