@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 
@@ -14,6 +15,8 @@ from backend.app.services.auth_service import (
     validate_password_strength,
     verify_password,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
 
@@ -88,37 +91,52 @@ def clear_failed_attempts(conn, username: str, ip_address: str) -> None:
 
 @router.post("/auth/login", response_model=TokenResponse)
 def login(payload: LoginRequest, response: Response, request: Request) -> TokenResponse:
+    logger.info(f"Login attempt for tenant: {payload.tenant_id}, username: {payload.username}")
     tenant_id = validate_tenant_id(payload.tenant_id)
+    logger.info(f"Validated tenant_id: {tenant_id}")
 
-    with get_tenant_conn(tenant_id) as conn:
-        init_auth_attempts_table(conn)
+    try:
+        with get_tenant_conn(tenant_id) as conn:
+            init_auth_attempts_table(conn)
 
-        ip_address = request.client.host if request.client else "unknown"
-        is_locked, remaining = is_account_locked(conn, payload.username, ip_address)
+            ip_address = request.client.host if request.client else "unknown"
+            logger.info(f"IP address: {ip_address}")
+            is_locked, remaining = is_account_locked(conn, payload.username, ip_address)
+            logger.info(f"Account locked: {is_locked}, remaining: {remaining}")
 
-        if is_locked:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Account locked. Try again in {remaining // 60} minutes.",
-            )
+            if is_locked:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Account locked. Try again in {remaining // 60} minutes.",
+                )
 
-        row = conn.execute(
-            "SELECT username, hashed_password FROM users WHERE username = ?",
-            (payload.username,),
-        ).fetchone()
-        tenant_user_count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-        if row is None and tenant_user_count == 0:
-            conn.execute(
-                "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
-                (payload.username, hash_password(payload.password)),
-            )
-            conn.commit()
             row = conn.execute(
                 "SELECT username, hashed_password FROM users WHERE username = ?",
                 (payload.username,),
             ).fetchone()
+            logger.info(f"User row found: {row is not None}")
+            tenant_user_count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+            logger.info(f"Total users in tenant: {tenant_user_count}")
+            if row is None and tenant_user_count == 0:
+                logger.info("Creating new user")
+                conn.execute(
+                    "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
+                    (payload.username, hash_password(payload.password)),
+                )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT username, hashed_password FROM users WHERE username = ?",
+                    (payload.username,),
+                ).fetchone()
+                logger.info(f"New user created, row: {row is not None}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Database error during login: {e}")
+        raise
 
     if row is None or not verify_password(payload.password, row["hashed_password"]):
+        logger.warning(f"Invalid credentials for user: {payload.username}")
         with get_tenant_conn(tenant_id) as conn:
             init_auth_attempts_table(conn)
             remaining = record_failed_attempt(conn, payload.username, ip_address)
@@ -135,6 +153,7 @@ def login(payload: LoginRequest, response: Response, request: Request) -> TokenR
 
     from backend.app.core.config import COOKIE_NAME, COOKIE_SECURE, JWT_EXPIRE_MINUTES
 
+    logger.info(f"Login successful for user: {payload.username}")
     token, expires_at = create_access_token(subject=row["username"], tenant_id=tenant_id)
     response.set_cookie(
         key=COOKIE_NAME,

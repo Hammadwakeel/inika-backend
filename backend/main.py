@@ -24,6 +24,7 @@ from backend.app.routes.health import router as health_router
 from backend.app.routes.migrations import router as migrations_router
 from backend.app.routes.proactive import router as proactive_router
 from backend.app.routes.booking import router as booking_router
+from backend.app.routes.journey import router as journey_router
 from backend.knowledge_engine import router as knowledge_engine_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -533,4 +534,5 @@ app.include_router(health_router)
 app.include_router(migrations_router)
 app.include_router(proactive_router)
 app.include_router(booking_router)
+app.include_router(journey_router)
 

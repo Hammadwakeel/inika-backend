@@ -14,10 +14,16 @@ class TokenData(BaseModel):
 
 
 def get_token_from_request(request: Request) -> str | None:
-    # Try cookie first
+    # Try Authorization header first (Bearer token)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]  # Remove "Bearer " prefix
+
+    # Try cookie second
     cookie_value = request.cookies.get(COOKIE_NAME)
     if cookie_value:
         return cookie_value
+
     # Fall back to query param
     return request.query_params.get("token")
 
@@ -68,3 +74,10 @@ def get_optional_user(request: Request) -> TokenData | None:
         pass
 
     return None
+
+
+def require_super_admin(request: Request) -> TokenData:
+    user = get_current_user(request)
+    # For now, all authenticated users can access super-admin endpoints
+    # Add role-based check here when roles are implemented
+    return user

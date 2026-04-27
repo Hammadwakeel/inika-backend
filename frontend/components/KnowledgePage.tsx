@@ -1,8 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState, useCallback, FormEvent } from "react";
+import dynamic from "next/dynamic";
 import AppNav from "./AppNav";
 import { Brain, Upload, FileText, Sparkles, Save, Loader2, Database, Trash2, Bot } from "lucide-react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+const ThreeBackground = dynamic(() => import("./ThreeBackground"), { ssr: false });
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -49,6 +58,15 @@ export default function KnowledgePage() {
   });
   const [savingAgent, setSavingAgent] = useState(false);
 
+  const pageRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLHeadingElement>(null);
+  const statusBadgesRef = useRef<HTMLDivElement>(null);
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
+  const aiIdentityRef = useRef<HTMLDivElement>(null);
+  const filesSectionRef = useRef<HTMLDivElement>(null);
+  const agentSectionRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const tenant = window.localStorage.getItem("axiom_tenant_id");
     const storedToken = window.localStorage.getItem("axiom_token");
@@ -59,6 +77,84 @@ export default function KnowledgePage() {
     setTenantId(tenant);
     setToken(storedToken || "");
   }, []);
+
+  // GSAP Entrance Animations
+  useEffect(() => {
+    if (!pageRef.current) return;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+      // Header animation
+      tl.from(headerRef.current, {
+        y: -30,
+        opacity: 0,
+        duration: 0.8,
+      });
+
+      // Status badges stagger
+      if (statusBadgesRef.current) {
+        tl.from(statusBadgesRef.current.children, {
+          y: -20,
+          opacity: 0,
+          duration: 0.5,
+          stagger: 0.1,
+        }, "-=0.4");
+      }
+
+      // Main content sections
+      const sections = [uploadSectionRef.current, aiIdentityRef.current, filesSectionRef.current, agentSectionRef.current];
+      sections.forEach((section, i) => {
+        if (section) {
+          tl.from(section, {
+            y: 50,
+            opacity: 0,
+            duration: 0.7,
+          }, i === 0 ? "-=0.2" : "-=0.5");
+        }
+      });
+
+      // Footer
+      if (footerRef.current) {
+        tl.from(footerRef.current, {
+          y: 20,
+          opacity: 0,
+          duration: 0.5,
+        }, "-=0.3");
+      }
+    }, pageRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // Hover animations for cards
+  const setupCardAnimations = useCallback(() => {
+    const cards = pageRef.current?.querySelectorAll(".card-animate");
+
+    cards?.forEach((card) => {
+      card.addEventListener("mouseenter", () => {
+        gsap.to(card, {
+          y: -4,
+          boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+          duration: 0.3,
+          ease: "power2.out",
+        });
+      });
+
+      card.addEventListener("mouseleave", () => {
+        gsap.to(card, {
+          y: 0,
+          boxShadow: "0 0 0 rgba(0,0,0,0)",
+          duration: 0.3,
+          ease: "power2.out",
+        });
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    setupCardAnimations();
+  }, [setupCardAnimations]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -144,6 +240,18 @@ export default function KnowledgePage() {
     setAgentEnabled(newEnabled);
     setAgentSettings({ ...agentSettings, enabled: newEnabled });
     const tok = window.localStorage.getItem("axiom_token") || '';
+
+    // Animate the toggle
+    const toggleBtn = document.querySelector(".agent-toggle") as HTMLElement;
+    if (toggleBtn) {
+      gsap.to(toggleBtn, {
+        scale: 0.95,
+        duration: 0.1,
+        yoyo: true,
+        repeat: 1,
+      });
+    }
+
     await fetch(`${API_BASE_URL}/agent/settings`, {
       method: "POST",
       credentials: "include",
@@ -172,6 +280,16 @@ export default function KnowledgePage() {
       });
       if (response.ok) {
         setAgentEnabled(agentSettings.enabled);
+        // Success animation
+        const btn = document.querySelector(".save-agent-btn");
+        if (btn) {
+          gsap.to(btn, {
+            backgroundColor: "#22c55e",
+            duration: 0.3,
+            yoyo: true,
+            repeat: 1,
+          });
+        }
       }
     } catch {}
     setSavingAgent(false);
@@ -181,6 +299,13 @@ export default function KnowledgePage() {
     if (!tenantId) return;
     setBusy(true);
     setError(null);
+
+    // Button loading animation
+    const btn = document.querySelector(".save-identity-btn");
+    if (btn) {
+      gsap.to(btn, { scale: 0.98, duration: 0.1 });
+    }
+
     try {
       const tok = window.localStorage.getItem("axiom_token") || '';
       const response = await fetch(`${API_BASE_URL}/knowledge/identity`, {
@@ -196,8 +321,35 @@ export default function KnowledgePage() {
       const data = (await response.json().catch(() => null)) as { detail?: string } | null;
       if (!response.ok) throw new Error(data?.detail ?? "Failed saving identity.");
       setIdentityDirty(false);
+
+      // Success animation
+      if (btn) {
+        gsap.to(btn, {
+          backgroundColor: "#22c55e",
+          color: "#fff",
+          borderColor: "#22c55e",
+          duration: 0.3,
+        });
+        setTimeout(() => {
+          gsap.to(btn, {
+            backgroundColor: "",
+            color: "",
+            borderColor: "",
+            duration: 0.3,
+          });
+        }, 1000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed saving identity.");
+      // Error shake animation
+      if (aiIdentityRef.current) {
+        gsap.to(aiIdentityRef.current, {
+          x: -5,
+          duration: 0.05,
+          yoyo: true,
+          repeat: 5,
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -212,6 +364,18 @@ export default function KnowledgePage() {
     }
     setBusy(true);
     setError(null);
+
+    // Upload button pulse animation
+    const submitBtn = uploadSectionRef.current?.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      gsap.to(submitBtn, {
+        scale: 1.02,
+        duration: 0.2,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
     try {
       const formData = new FormData();
       formData.append("tenant_id", tenantId);
@@ -227,9 +391,32 @@ export default function KnowledgePage() {
       setUploadText("");
       setFile(null);
       setError(null);
+
+      // Success animation
+      if (submitBtn) {
+        gsap.killTweensOf(submitBtn);
+        gsap.to(submitBtn, {
+          backgroundColor: "#22c55e",
+          duration: 0.3,
+        });
+      }
     } catch (err) {
+      if (submitBtn) {
+        gsap.killTweensOf(submitBtn);
+      }
       setError(err instanceof Error ? err.message : "Upload failed.");
+      if (uploadSectionRef.current) {
+        gsap.to(uploadSectionRef.current, {
+          borderColor: "#ef4444",
+          duration: 0.3,
+          yoyo: true,
+          repeat: 1,
+        });
+      }
     } finally {
+      if (submitBtn) {
+        gsap.killTweensOf(submitBtn);
+      }
       setBusy(false);
     }
   };
@@ -242,6 +429,12 @@ export default function KnowledgePage() {
     }
     setBusy(true);
     setError(null);
+
+    const zipBtn = event.currentTarget?.querySelector('button[type="submit"]');
+    if (zipBtn) {
+      gsap.to(zipBtn, { scale: 0.98, duration: 0.1 });
+    }
+
     try {
       const formData = new FormData();
       formData.append("tenant_id", tenantId);
@@ -262,25 +455,39 @@ export default function KnowledgePage() {
     }
   };
 
-  const progressWidth = useMemo(() => `${Math.max(0, Math.min(100, progress))}%`, [progress]);
+  const progressWidth = `${Math.max(0, Math.min(100, progress))}%`;
+
+  // File item animation
+  const animateFileItem = useCallback((element: HTMLElement, isEntering: boolean) => {
+    if (isEntering) {
+      gsap.from(element, {
+        x: -20,
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.out",
+      });
+    }
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white">
-      <AppNav />
+    <div ref={pageRef} className="min-h-screen bg-white relative overflow-hidden">
+      <ThreeBackground />
 
-      <main className="mx-auto max-w-6xl px-8 py-12">
+      <main className="relative z-10 mx-auto max-w-6xl px-8 py-12">
         <header className="mb-12 border-b border-black pb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
+              <div className="header-icon flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
                 <Brain className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="font-mono text-2xl font-bold tracking-tight">KNOWLEDGE_ENGINE</h1>
+                <h1 ref={headerRef} className="header-title font-mono text-2xl font-bold tracking-tight">
+                  KNOWLEDGE_ENGINE
+                </h1>
                 <p className="font-mono text-xs text-gray-500">// rag-powered ai training system</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div ref={statusBadgesRef} className="flex items-center gap-4">
               <StatusBadge
                 label="INDEX"
                 value={indexReady ? "READY" : "EMPTY"}
@@ -306,20 +513,20 @@ export default function KnowledgePage() {
         </header>
 
         {error && (
-          <div className="mb-6 border border-red-500 bg-red-50 px-4 py-3">
+          <div className="error-banner mb-6 border border-red-500 bg-red-50 px-4 py-3">
             <p className="font-mono text-xs text-red-600">ERROR: {error}</p>
           </div>
         )}
 
         {processing && (
-          <div className="mb-6 border border-black px-4 py-4">
+          <div className="processing-bar mb-6 border border-black px-4 py-4">
             <div className="mb-3 flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="font-mono text-xs font-semibold uppercase">Processing</span>
             </div>
             <div className="h-2 w-full bg-gray-200">
               <div
-                className="h-full bg-black transition-all duration-500"
+                className="progress-fill h-full bg-black transition-all duration-500"
                 style={{ width: progressWidth }}
               />
             </div>
@@ -329,7 +536,7 @@ export default function KnowledgePage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           {/* Upload Section */}
-          <div className="border border-black">
+          <div ref={uploadSectionRef} className="card-animate border border-black">
             <div className="border-b border-black bg-black px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -368,7 +575,7 @@ export default function KnowledgePage() {
                 <button
                   type="submit"
                   disabled={busy || (!uploadText.trim() && !file)}
-                  className="flex w-full items-center justify-center border border-black bg-black py-3 px-4 font-mono text-sm font-medium text-white transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="upload-btn flex w-full items-center justify-center border border-black bg-black py-3 px-4 font-mono text-sm font-medium text-white transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy ? (
                     <span className="flex items-center gap-2">
@@ -424,7 +631,7 @@ export default function KnowledgePage() {
           {/* Right Column */}
           <div className="space-y-6">
             {/* AI Identity */}
-            <div className="border border-black">
+            <div ref={aiIdentityRef} className="card-animate border border-black">
               <div className="border-b border-black bg-black px-6 py-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-white" />
@@ -466,7 +673,7 @@ export default function KnowledgePage() {
                   type="button"
                   onClick={onSaveIdentity}
                   disabled={busy || !identityDirty}
-                  className="flex w-full items-center justify-center border border-black py-3 px-4 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="save-identity-btn flex w-full items-center justify-center border border-black py-3 px-4 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy ? (
                     <span className="flex items-center gap-2">
@@ -484,7 +691,7 @@ export default function KnowledgePage() {
             </div>
 
             {/* Uploaded Files */}
-            <div className="border border-black">
+            <div ref={filesSectionRef} className="card-animate border border-black">
               <div className="border-b border-black bg-black px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -506,7 +713,10 @@ export default function KnowledgePage() {
                 ) : (
                   <div className="space-y-2">
                     {files.map((item, idx) => (
-                      <div key={`${item.name}-${item.modified_at}-${idx}`} className="flex items-center justify-between border border-gray-200 p-3">
+                      <div
+                        key={`${item.name}-${item.modified_at}-${idx}`}
+                        className="file-item flex items-center justify-between border border-gray-200 p-3"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center border border-black bg-gray-100 text-black">
                             <FileText className="h-4 w-4" />
@@ -526,7 +736,7 @@ export default function KnowledgePage() {
           </div>
 
           {/* AI Agent Settings */}
-          <div className="border border-black">
+          <div ref={agentSectionRef} className="card-animate border border-black lg:col-span-2">
             <div className="border-b border-black bg-black px-6 py-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-white" />
@@ -543,12 +753,12 @@ export default function KnowledgePage() {
                 </div>
                 <button
                   onClick={toggleAgent}
-                  className={`relative h-6 w-12 border-2 transition-all ${
+                  className={`agent-toggle relative h-6 w-12 border-2 transition-all ${
                     agentEnabled ? "border-green-500 bg-green-500" : "border-gray-300 bg-gray-100"
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 h-4 w-4 border border-black bg-white transition-all ${
+                    className={`agent-toggle-dot absolute top-0.5 h-4 w-4 border border-black bg-white transition-all ${
                       agentEnabled ? "left-[calc(100%-18px)]" : "left-0.5"
                     }`}
                   />
@@ -594,7 +804,7 @@ export default function KnowledgePage() {
               <button
                 onClick={saveAgentSettings}
                 disabled={savingAgent}
-                className="flex w-full items-center justify-center border border-black py-3 px-4 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
+                className="save-agent-btn flex w-full items-center justify-center border border-black py-3 px-4 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
               >
                 {savingAgent ? (
                   <span className="flex items-center gap-2">
@@ -612,7 +822,7 @@ export default function KnowledgePage() {
           </div>
         </div>
 
-        <footer className="mt-16 border-t border-black pt-8">
+        <footer ref={footerRef} className="mt-16 border-t border-black pt-8">
           <div className="flex items-center justify-between font-mono text-xs text-gray-400">
             <span>KNOWLEDGE_ENGINE v1.0.0</span>
             <span>AXIOM_PLATFORM</span>
@@ -625,7 +835,7 @@ export default function KnowledgePage() {
 
 function StatusBadge({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
-    <div className="flex items-center gap-2 border border-black px-3 py-1.5">
+    <div className="status-badge flex items-center gap-2 border border-black px-3 py-1.5">
       <span className={`h-2 w-2 ${ok ? "bg-green-500" : "bg-amber-500"}`}></span>
       <span className="font-mono text-xs font-medium text-black">{label}</span>
       <span className="font-mono text-xs text-gray-500">:</span>

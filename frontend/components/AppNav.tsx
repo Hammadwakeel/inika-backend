@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MessageSquare, Brain, User, LogOut } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Brain, User, LogOut, MapPin, Calendar, MessageCircle } from "lucide-react";
 
 const LINKS = [
   { href: "/dashboard", label: "DASHBOARD", icon: LayoutDashboard },
+  { href: "/journey", label: "JOURNEY", icon: MapPin },
+  { href: "/booking", label: "BOOKING", icon: Calendar },
   { href: "/whatsapp", label: "WHATSAPP", icon: MessageSquare },
+  { href: "/rag", label: "RAG", icon: MessageCircle },
   { href: "/knowledge", label: "KNOWLEDGE", icon: Brain },
   { href: "/profile", label: "PROFILE", icon: User },
 ];

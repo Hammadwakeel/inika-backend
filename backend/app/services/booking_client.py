@@ -113,6 +113,25 @@ def sync_guests_to_db(tenant_id: str, guest_data: list[dict[str, Any]]) -> int:
 
 def get_active_guests(tenant_id: str) -> list[dict[str, Any]]:
     with get_tenant_conn(tenant_id) as conn:
+        # Ensure table exists
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS guest_inventory (
+                id TEXT PRIMARY KEY,
+                tid TEXT,
+                rid TEXT,
+                room TEXT,
+                gname TEXT,
+                mobile TEXT,
+                gstatus TEXT,
+                gcount TEXT,
+                btype TEXT,
+                sub_booking_id TEXT,
+                driver_tag TEXT,
+                cindate TEXT,
+                coutdate TEXT,
+                synced_at INTEGER
+            )
+        """)
         rows = conn.execute(
             """
             SELECT * FROM guest_inventory
@@ -125,6 +144,13 @@ def get_active_guests(tenant_id: str) -> list[dict[str, Any]]:
 
 def get_guest_by_mobile(tenant_id: str, mobile: str) -> dict[str, Any] | None:
     with get_tenant_conn(tenant_id) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS guest_inventory (
+                id TEXT PRIMARY KEY, tid TEXT, rid TEXT, room TEXT, gname TEXT,
+                mobile TEXT, gstatus TEXT, gcount TEXT, btype TEXT,
+                sub_booking_id TEXT, driver_tag TEXT, cindate TEXT, coutdate TEXT, synced_at INTEGER
+            )
+        """)
         row = conn.execute(
             "SELECT * FROM guest_inventory WHERE mobile = ? ORDER BY synced_at DESC LIMIT 1",
             (mobile,),
@@ -134,6 +160,13 @@ def get_guest_by_mobile(tenant_id: str, mobile: str) -> dict[str, Any] | None:
 
 def get_guest_by_room(tenant_id: str, room: str) -> dict[str, Any] | None:
     with get_tenant_conn(tenant_id) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS guest_inventory (
+                id TEXT PRIMARY KEY, tid TEXT, rid TEXT, room TEXT, gname TEXT,
+                mobile TEXT, gstatus TEXT, gcount TEXT, btype TEXT,
+                sub_booking_id TEXT, driver_tag TEXT, cindate TEXT, coutdate TEXT, synced_at INTEGER
+            )
+        """)
         row = conn.execute(
             "SELECT * FROM guest_inventory WHERE room = ? AND gstatus IN ('Arrived', 'StayOver') ORDER BY synced_at DESC LIMIT 1",
             (room,),
@@ -143,6 +176,13 @@ def get_guest_by_room(tenant_id: str, room: str) -> dict[str, Any] | None:
 
 def get_guest_journey_status(tenant_id: str, guest_id: str) -> dict[str, Any]:
     with get_tenant_conn(tenant_id) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS guest_inventory (
+                id TEXT PRIMARY KEY, tid TEXT, rid TEXT, room TEXT, gname TEXT,
+                mobile TEXT, gstatus TEXT, gcount TEXT, btype TEXT,
+                sub_booking_id TEXT, driver_tag TEXT, cindate TEXT, coutdate TEXT, synced_at INTEGER
+            )
+        """)
         guest_row = conn.execute(
             "SELECT * FROM guest_inventory WHERE id = ? OR tid = ? LIMIT 1",
             (guest_id, guest_id),
@@ -191,3 +231,11 @@ def get_guest_journey_status(tenant_id: str, guest_id: str) -> dict[str, Any]:
         })
 
         return journey
+
+
+def fetch_todays_bookings(tenant_id: str) -> list[dict[str, Any]]:
+    """Fetch today's bookings from the guest inventory."""
+    guests = get_active_guests(tenant_id)
+    from datetime import date
+    today = date.today().isoformat()
+    return [g for g in guests if g.get("cindate", "").startswith(today) or g.get("coutdate", "").startswith(today)]

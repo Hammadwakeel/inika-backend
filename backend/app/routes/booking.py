@@ -15,9 +15,29 @@ from backend.app.services.booking_client import (
     get_guest_by_room,
     get_guest_journey_status,
     sync_guests_to_db,
+    fetch_todays_bookings,
 )
 
 router = APIRouter(prefix="/booking", tags=["booking"])
+
+
+@router.get("/todays")
+def get_todays_bookings(
+    current_user: Annotated[TokenData, Depends(get_current_user)],
+    tenant_id: str = Query(..., min_length=2, max_length=64),
+) -> dict[str, Any]:
+    tenant_id = validate_tenant_id(tenant_id)
+    if tenant_id != current_user.tenant_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    guests = fetch_todays_bookings(tenant_id)
+    return {
+        "status": "ok",
+        "count": len(guests),
+        "guests": guests,
+        "message": f"Found {len(guests)} guests for today",
+    }
 
 
 @router.get("/sync")

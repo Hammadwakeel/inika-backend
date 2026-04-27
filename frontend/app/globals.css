@@ -145,11 +145,81 @@
   .animate-border-pulse {
     animation: borderPulse 2s ease-in-out infinite;
   }
+
+  /* GSAP Animation Enhancements */
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  /* Typing cursor effect */
+  .typing-cursor::after {
+    content: '|';
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Button ripple effect */
+  .btn-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-ripple::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .btn-ripple:active::before {
+    width: 300px;
+    height: 300px;
+  }
 }
 
 @keyframes borderPulse {
   0%, 100% { border-color: #000; }
   50% { border-color: #666; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(0, 0, 0, 0.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 /* Custom scrollbar - Industrial */
@@ -169,4 +239,134 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #333;
+}
+
+/* Three.js Background */
+.three-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.three-bg canvas {
+  display: block;
+}
+
+/* GSAP Animation Classes */
+.gsap-fade-in {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.gsap-slide-in {
+  opacity: 0;
+  transform: translateX(-50px);
+}
+
+.gsap-scale-in {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+/* Card Hover Effect */
+.card-animate {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+}
+
+/* Button Pulse Animation */
+@keyframes buttonPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(0, 0, 0, 0);
+  }
+}
+
+.btn-pulse {
+  animation: buttonPulse 1.5s ease-in-out infinite;
+}
+
+/* Status Badge Animation */
+.status-badge {
+  transition: all 0.3s ease;
+}
+
+.status-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 0 #000;
+}
+
+/* Progress Bar Glow */
+.progress-fill {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Header Icon Spin on Load */
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.header-icon {
+  animation: iconSpin 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Error Banner Shake */
+.error-banner {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* File Item Hover */
+.file-item {
+  transition: all 0.2s ease;
+}
+
+.file-item:hover {
+  border-color: #000 !important;
+  background: #fafafa;
+  transform: translateX(4px);
+}
+
+/* Success Flash */
+@keyframes successFlash {
+  0% { background-color: rgba(34, 197, 94, 0); }
+  50% { background-color: rgba(34, 197, 94, 0.2); }
+  100% { background-color: rgba(34, 197, 94, 0); }
+}
+
+.success-flash {
+  animation: successFlash 0.6s ease;
+}
+
+/* Toggle Animation */
+.agent-toggle-dot {
+  transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Scroll Reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+}
+
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

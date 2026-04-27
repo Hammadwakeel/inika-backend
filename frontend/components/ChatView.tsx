@@ -304,117 +304,154 @@ export default function ChatView() {
           </div>
         )}
 
-        {!linked && qrBase64 && (
+        {!linked && (
           <div className="mb-8 border border-black p-8 text-center">
             <div className="mb-6">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center border border-black bg-gray-50">
                 <MessageSquare className="h-6 w-6" />
               </div>
-              <h3 className="font-mono text-lg font-bold uppercase tracking-tight">SCAN_QR_CODE</h3>
-              <p className="font-mono text-xs text-gray-500">Open WhatsApp on your phone and scan this code</p>
+              <h3 className="font-mono text-lg font-bold uppercase tracking-tight">
+                {qrBase64 ? "SCAN_QR_CODE" : "CONNECT_WHATSAPP"}
+              </h3>
+              <p className="font-mono text-xs text-gray-500">
+                {qrBase64
+                  ? "Open WhatsApp on your phone and scan this code"
+                  : "Waiting for QR code... Connection status: " + status}
+              </p>
             </div>
-            <div className="mx-auto inline-block border-2 border-black bg-white p-4">
-              <img src={qrBase64} alt="WhatsApp QR" className="h-64 w-64 object-contain" />
-            </div>
-            <div className="mt-6 flex items-center justify-center gap-4">
-              <button
-                onClick={refreshQr}
-                disabled={refreshing}
-                className="flex items-center gap-2 border border-black px-6 py-3 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
-              >
-                {refreshing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                REFRESH QR
-              </button>
-              <button
-                onClick={resetSession}
-                disabled={resetting}
-                className="flex items-center gap-2 border border-red-500 px-6 py-3 font-mono text-sm font-medium text-red-600 transition-all hover:bg-red-500 hover:text-white disabled:opacity-50"
-              >
-                {resetting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-4 w-4" />
-                )}
-                RESET SESSION
-              </button>
-            </div>
+
+            {qrBase64 ? (
+              <>
+                <div className="mx-auto inline-block border-2 border-black bg-white p-4">
+                  <img src={qrBase64} alt="WhatsApp QR" className="h-64 w-64 object-contain" />
+                </div>
+                <div className="mt-6 flex items-center justify-center gap-4">
+                  <button
+                    onClick={refreshQr}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 border border-black px-6 py-3 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
+                  >
+                    {refreshing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    REFRESH QR
+                  </button>
+                  <button
+                    onClick={resetSession}
+                    disabled={resetting}
+                    className="flex items-center gap-2 border border-red-500 px-6 py-3 font-mono text-sm font-medium text-red-600 transition-all hover:bg-red-500 hover:text-white disabled:opacity-50"
+                  >
+                    {resetting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4" />
+                    )}
+                    RESET SESSION
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <button
+                  onClick={refreshQr}
+                  disabled={refreshing}
+                  className="flex items-center gap-2 border border-black px-6 py-3 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white disabled:opacity-50"
+                >
+                  {refreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  RETRY CONNECTION
+                </button>
+                <button
+                  onClick={resetSession}
+                  disabled={resetting}
+                  className="flex items-center gap-2 border border-red-500 px-6 py-3 font-mono text-sm font-medium text-red-600 transition-all hover:bg-red-500 hover:text-white disabled:opacity-50"
+                >
+                  {resetting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                  RESET SESSION
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="border border-black">
-          <div className="border-b border-black bg-black px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-white">
-                CONVERSATIONS
-              </h2>
-              <span className="font-mono text-xs text-gray-400">{filteredChats.length} / {chats.length}</span>
+        {linked && (
+          <div className="border border-black">
+            <div className="border-b border-black bg-black px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-white">
+                  CONVERSATIONS
+                </h2>
+                <span className="font-mono text-xs text-gray-400">{filteredChats.length} / {chats.length}</span>
+              </div>
             </div>
-          </div>
-
-          <div className="border-b border-black bg-gray-50 px-4 py-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search conversations..."
-                className="w-full border border-black bg-white py-2 pl-10 pr-10 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-black"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex h-[calc(100vh-320px)]">
-            <aside className="w-80 shrink-0 border-r border-black overflow-y-auto">
-              <div className="max-h-full">
-                {filteredChats.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <MessageSquare className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                    <p className="font-mono text-sm text-gray-500">
-                      {searchQuery ? "No matching conversations" : "No conversations yet"}
-                    </p>
-                  </div>
-                ) : (
-                  filteredChats.map((chat) => (
-                    <button
-                      key={chat.jid}
-                      type="button"
-                      onClick={() => setSelectedJid(chat.jid)}
-                      className={`w-full border-b border-black p-4 text-left transition-all hover:bg-gray-50 ${
-                        selectedJid === chat.jid ? "bg-black text-white" : ""
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center border ${
-                          selectedJid === chat.jid ? "border-white bg-white text-black" : "border-black bg-gray-100 text-black"
-                        }`}>
-                          <span className="font-mono text-xs font-bold">{getDisplayName(chat)[0]?.toUpperCase() || "?"}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="truncate font-mono text-sm font-semibold">{getDisplayName(chat)}</p>
-                            <span className="font-mono text-[10px] text-gray-400">{formatDate(chat.timestamp)}</span>
-                          </div>
-                          <p className="truncate font-mono text-xs text-gray-500">{chat.last_message || "No messages"}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))
+            <div className="border-b border-black bg-gray-50 px-4 py-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search conversations..."
+                  className="w-full border border-black bg-white py-2 pl-10 pr-10 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </div>
-            </aside>
+            </div>
+            <div className="flex h-[calc(100vh-320px)]">
+              <aside className="w-80 shrink-0 border-r border-black overflow-y-auto">
+                <div className="max-h-full">
+                  {filteredChats.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <MessageSquare className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                      <p className="font-mono text-sm text-gray-500">
+                        {searchQuery ? "No matching conversations" : "No conversations yet"}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredChats.map((chat) => (
+                      <button
+                        key={chat.jid}
+                        type="button"
+                        onClick={() => setSelectedJid(chat.jid)}
+                        className={`w-full border-b border-black p-4 text-left transition-all hover:bg-gray-50 ${
+                          selectedJid === chat.jid ? "bg-black text-white" : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center border ${
+                            selectedJid === chat.jid ? "border-white bg-white text-black" : "border-black bg-gray-100 text-black"
+                          }`}>
+                            <span className="font-mono text-xs font-bold">{getDisplayName(chat)[0]?.toUpperCase() || "?"}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="truncate font-mono text-sm font-semibold">{getDisplayName(chat)}</p>
+                              <span className="font-mono text-[10px] text-gray-400">{formatDate(chat.timestamp)}</span>
+                            </div>
+                            <p className="truncate font-mono text-xs text-gray-500">{chat.last_message || "No messages"}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </aside>
 
             <section className="flex flex-1 flex-col overflow-hidden">
               {selectedChat ? (
@@ -503,8 +540,9 @@ export default function ChatView() {
                 </div>
               )}
             </section>
+            </div>
           </div>
-        </div>
+        )}
 
         <footer className="mt-16 border-t border-black pt-8">
           <div className="flex items-center justify-between font-mono text-xs text-gray-400">
