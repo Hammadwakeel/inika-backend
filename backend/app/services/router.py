@@ -92,6 +92,7 @@ def smart_query_router(
     guest_id: str,
     user_msg: str,
     background_tasks: BackgroundTasks | None = None,
+    llm_timeout: int | None = None,
 ) -> dict[str, Any]:
     session_id = get_or_create_session(tenant_id=tenant_id, guest_id=guest_id)
     append_session_message(tenant_id=tenant_id, session_id=session_id, role="user", content=user_msg)
@@ -283,7 +284,9 @@ def smart_query_router(
         source="llm",
     )
     try:
-        assistant_response = chat_completion(system_prompt=final_system_prompt, user_prompt=final_user_prompt)
+        assistant_response = chat_completion(system_prompt=final_system_prompt, user_prompt=final_user_prompt, timeout=llm_timeout)
+    except TimeoutError as exc:
+        raise TimeoutError(f"LLM request timed out: {exc}") from exc
     except Exception:
         assistant_response = (
             "Routing and retrieval are complete, but the model response service is unavailable right now."

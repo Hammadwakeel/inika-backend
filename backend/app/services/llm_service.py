@@ -14,7 +14,10 @@ OPENROUTER_EMBED_MODEL = os.getenv("OPENROUTER_EMBED_MODEL", "openai/text-embedd
 USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "false").lower() == "true"
 
 
-def _post_json(url: str, payload: dict) -> dict:
+OPENROUTER_TIMEOUT = int(os.getenv("OPENROUTER_TIMEOUT", "30"))
+
+
+def _post_json(url: str, payload: dict, timeout: int | None = None) -> dict:
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY is not set")
     body = json.dumps(payload).encode("utf-8")
@@ -29,9 +32,15 @@ def _post_json(url: str, payload: dict) -> dict:
         },
         method="POST",
     )
-    with request.urlopen(req, timeout=60) as response:
-        raw = response.read().decode("utf-8")
-    return json.loads(raw)
+    effective_timeout = timeout if timeout is not None else OPENROUTER_TIMEOUT
+    try:
+        with request.urlopen(req, timeout=effective_timeout) as response:
+            raw = response.read().decode("utf-8")
+        return json.loads(raw)
+    except TimeoutError:
+        raise TimeoutError(f"OpenRouter request timed out after {effective_timeout}s: {url}")
+    except Exception as exc:
+        raise RuntimeError(f"OpenRouter request failed: {exc}") from exc
 
 
 def _local_embedding(text: str, dim: int = 1536) -> list[float]:
@@ -60,7 +69,7 @@ def embed_texts(texts: Iterable[str]) -> list[list[float]]:
     return [row["embedding"] for row in rows]
 
 
-def chat_completion(system_prompt: str, user_prompt: str) -> str:
+def chat_completion(system_prompt: str, user_prompt: str, timeout: int | None = None) -> str:
     payload = {
         "model": OPENROUTER_CHAT_MODEL,
         "messages": [
@@ -68,7 +77,7 @@ def chat_completion(system_prompt: str, user_prompt: str) -> str:
             {"role": "user", "content": user_prompt},
         ],
     }
-    data = _post_json(f"{OPENROUTER_BASE_URL}/chat/completions", payload)
+    data = _post_json(f"{OPENROUTER_BASE_URL}/chat/completions", payload, timeout=timeout)
     choices = data.get("choices", [])
     if not choices:
         raise RuntimeError("OpenRouter chat returned no choices")

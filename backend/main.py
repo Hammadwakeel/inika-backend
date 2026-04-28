@@ -382,25 +382,23 @@ def _process_new_messages_for_auto_reply(tenant_id: str, messages: list[dict[str
 def _send_auto_reply(tenant_id: str, source_message_id: str, jid: str, user_text: str) -> None:
     """Send auto-reply using the smart query router."""
     try:
-        # Use the jid as guest_id
         guest_id = jid
 
-        # Call the smart query router
         result = smart_query_router(
             tenant_id=tenant_id,
             guest_id=guest_id,
             user_msg=user_text,
             background_tasks=None,
+            llm_timeout=20,  # 20 second timeout for auto-reply
         )
 
         response_text = str(result.get("response", "")).strip()
         if not response_text:
+            print(f"Auto-reply: empty response for {source_message_id}")
             return
 
-        # Enqueue the outbound message
         job_id = enqueue_outbound_message(tenant_id, jid, response_text)
 
-        # Persist the sent message
         persist_messages(
             tenant_id,
             [
@@ -425,6 +423,9 @@ def _send_auto_reply(tenant_id: str, source_message_id: str, jid: str, user_text
                 }
             ],
         )
+        print(f"Auto-reply sent: {source_message_id} -> {jid}")
+    except TimeoutError as exc:
+        print(f"Auto-reply timeout: {exc}")
     except Exception as exc:  # noqa: BLE001
         print(f"Auto-reply error: {exc}")
 
