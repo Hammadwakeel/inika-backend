@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 TENANTS_ROOT = BASE_DIR / "data" / "tenants"
 DB_FILENAME = "axiom.db"
 BRIDGE_SCRIPT = BASE_DIR / "whatsapp_bridge.js"
