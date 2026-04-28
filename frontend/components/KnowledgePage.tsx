@@ -43,6 +43,7 @@ export default function KnowledgePage() {
     auto_reply_enabled: false,
     use_knowledge_base: true,
     use_web_search: false,
+    fallback_message: "",
   });
   const [savingAgent, setSavingAgent] = useState(false);
 
@@ -129,6 +130,7 @@ export default function KnowledgePage() {
           auto_reply_enabled: data.auto_reply_enabled || false,
           use_knowledge_base: data.use_knowledge_base !== false,
           use_web_search: data.use_web_search || false,
+          fallback_message: data.fallback_message || "",
         });
       })
       .catch(() => {});

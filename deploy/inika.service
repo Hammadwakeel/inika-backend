@@ -1,0 +1,41 @@
+[Unit]
+Description=Inika Bot FastAPI Backend
+After=network.target nginx.service
+Requires=nginx.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/inika-bot
+Environment="PYTHONPATH=/opt/inika-bot"
+EnvironmentFile=/opt/inika-bot/backend/.env
+ExecStart=/opt/inika-bot/.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 4
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectProc=invisible
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDsGID=true
+
+# Allow access only to necessary paths
+ReadWritePaths=/opt/inika-bot/data
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target
