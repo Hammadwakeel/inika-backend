@@ -31,9 +31,6 @@ WORKDIR /app/backend
 RUN npm install --production || npm install || true
 WORKDIR /app
 
-# Create directories for tenant data
-RUN mkdir -p /app/data/tenants
-
 # Cloud Run injects PORT env var (default 8080)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
@@ -42,6 +39,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Non-root user for security
 RUN useradd -m -u 65532 appuser
 USER appuser
+
+# Create directories for tenant data (after user switch)
+RUN mkdir -p /app/data/tenants
 
 EXPOSE 8080
 
