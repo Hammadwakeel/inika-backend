@@ -441,25 +441,32 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
     import threading
     from backend.app.services.memory_manager import get_agent_settings
 
-    # Rate limit per tenant
-    now = time.time()
-    last_time = _last_auto_reply_time.get(tenant_id, 0)
-    if now - last_time < _AUTO_REPLY_COOLDOWN:
-        return  # Still in cooldown
-    _last_auto_reply_time[tenant_id] = now
-
-    try:
-        settings = get_agent_settings(tenant_id)
-        if not settings.get("auto_reply_enabled", False):
-            return
-    except Exception:  # noqa: BLE001
-        return
-
     msg_id = str(message.get("message_id", "")).strip()
     jid = str(message.get("jid", "")).strip()
     text = str(message.get("text", "")).strip()
 
+    print(f"[AUTO-REPLY] Checking msg: jid={jid}, text={text[:30]}...")
+
+    # Rate limit per tenant
+    now = time.time()
+    last_time = _last_auto_reply_time.get(tenant_id, 0)
+    if now - last_time < _AUTO_REPLY_COOLDOWN:
+        print(f"[AUTO-REPLY] Rate limited (cooldown) for {tenant_id}")
+        return
+    _last_auto_reply_time[tenant_id] = now
+
+    try:
+        settings = get_agent_settings(tenant_id)
+        print(f"[AUTO-REPLY] Settings for {tenant_id}: {settings}")
+        if not settings.get("auto_reply_enabled", False):
+            print(f"[AUTO-REPLY] Auto-reply disabled for {tenant_id}")
+            return
+    except Exception as e:  # noqa: BLE001
+        print(f"[AUTO-REPLY] Error reading settings: {e}")
+        return
+
     if not msg_id or not jid or not text:
+        print(f"[AUTO-REPLY] Missing required fields")
         return
 
     def _do_reply():
