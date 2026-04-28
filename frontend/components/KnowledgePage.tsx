@@ -40,11 +40,9 @@ export default function KnowledgePage() {
   const [identityDirty, setIdentityDirty] = useState(false);
   const [agentEnabled, setAgentEnabled] = useState(false);
   const [agentSettings, setAgentSettings] = useState({
-    enabled: false,
-    response_delay_seconds: 3,
+    auto_reply_enabled: false,
     use_knowledge_base: true,
-    use_web_search: true,
-    fallback_message: "Thanks for your message! A team member will get back to you shortly.",
+    use_web_search: false,
   });
   const [savingAgent, setSavingAgent] = useState(false);
 
@@ -123,16 +121,14 @@ export default function KnowledgePage() {
   useEffect(() => {
     if (!tenantId) return;
     const tok = window.localStorage.getItem("axiom_token") || '';
-    fetch(`${API_BASE_URL}/agent/settings?tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(tok)}`)
+    fetch(`${API_BASE_URL}/settings/agent?tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(tok)}`)
       .then(res => res.json())
       .then(data => {
-        setAgentEnabled(data.enabled || false);
+        setAgentEnabled(data.auto_reply_enabled || false);
         setAgentSettings({
-          enabled: data.enabled || false,
-          response_delay_seconds: data.response_delay_seconds || 3,
+          auto_reply_enabled: data.auto_reply_enabled || false,
           use_knowledge_base: data.use_knowledge_base !== false,
-          use_web_search: data.use_web_search !== false,
-          fallback_message: data.fallback_message || "Thanks for your message! A team member will get back to you shortly.",
+          use_web_search: data.use_web_search || false,
         });
       })
       .catch(() => {});
@@ -141,17 +137,17 @@ export default function KnowledgePage() {
   const toggleAgent = async () => {
     const newEnabled = !agentEnabled;
     setAgentEnabled(newEnabled);
-    setAgentSettings({ ...agentSettings, enabled: newEnabled });
+    setAgentSettings({ ...agentSettings, auto_reply_enabled: newEnabled });
     const tok = window.localStorage.getItem("axiom_token") || '';
 
-    await fetch(`${API_BASE_URL}/agent/settings`, {
+    await fetch(`${API_BASE_URL}/settings/agent?tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(tok)}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tenant_id: tenantId,
-        ...agentSettings,
-        enabled: newEnabled,
+        auto_reply_enabled: newEnabled,
+        use_web_search: agentSettings.use_web_search,
+        use_knowledge_base: agentSettings.use_knowledge_base,
       }),
     });
   };
@@ -161,17 +157,18 @@ export default function KnowledgePage() {
     setSavingAgent(true);
     try {
       const tok = window.localStorage.getItem("axiom_token") || '';
-      const response = await fetch(`${API_BASE_URL}/agent/settings`, {
+      const response = await fetch(`${API_BASE_URL}/settings/agent?tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(tok)}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id: tenantId,
-          ...agentSettings,
+          auto_reply_enabled: agentSettings.auto_reply_enabled,
+          use_web_search: agentSettings.use_web_search,
+          use_knowledge_base: agentSettings.use_knowledge_base,
         }),
       });
       if (response.ok) {
-        setAgentEnabled(agentSettings.enabled);
+        setAgentEnabled(agentSettings.auto_reply_enabled);
       }
     } catch {}
     setSavingAgent(false);

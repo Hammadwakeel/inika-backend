@@ -7,7 +7,6 @@ from backend.app.services.memory_manager import (
     get_agent_settings,
     get_rag_threshold,
     set_agent_settings,
-    set_rag_threshold,
     set_tenant_setting,
 )
 
