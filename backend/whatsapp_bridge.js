@@ -86,10 +86,11 @@ function messageTimestampToNumber(value) {
 async function startDaemon() {
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   let latestQr = null;
+  let reconnecting = false;
   let linked = false;
   const chatMap = new Map();
   const messageMap = new Map();
-  const seenMessageIds = new Set(); // Track seen message IDs for deduplication
+  const seenMessageIds = new Set();
 
   writeJson(statusFile, { tenant_id: tenantId, linked: false, qr_base64: null, status: "starting" });
   writeJson(chatsFile, { tenant_id: tenantId, chats: [] });
@@ -123,14 +124,11 @@ async function startDaemon() {
   const upsertMessage = (entry) => {
     if (!entry?.message_id || !entry?.jid) return;
 
-    // Skip if already seen this exact message ID
     if (seenMessageIds.has(entry.message_id)) {
-      console.log(`[BRIDGE] Skipping duplicate message: ${entry.message_id}`);
       return;
     }
     seenMessageIds.add(entry.message_id);
 
-    // Keep seen IDs bounded
     if (seenMessageIds.size > 10000) {
       const arr = Array.from(seenMessageIds);
       seenMessageIds.clear();
@@ -197,220 +195,170 @@ async function startDaemon() {
       version,
       printQRInTerminal: false,
       logger: P({ level: "silent" }),
-      syncFullHistory: true,
+      syncFullHistory: false,
       fireInitQueries: true,
       markOnlineOnConnect: false,
       browser: Browsers.macOS("Axiom Desktop")
     });
 
-    // Process events using the recommended async pattern
-    sock.ev.process(async (events) => {
-      // Handle connection updates
-      if (events["connection.update"]) {
-        const update = events["connection.update"];
-        const { connection, qr, lastDisconnect } = update;
+    sock.ev.on("creds.update", saveCreds);
 
-        if (qr) {
-          latestQr = await QRCode.toDataURL(qr);
+    sock.ev.on("chats.set", ({ chats }) => {
+      const compact = compactChats(chats || []);
+      compact.forEach(upsertChat);
+      persistChatMap();
+    });
+
+    sock.ev.on("chats.upsert", (chats) => {
+      const compact = compactChats(chats || []);
+      compact.forEach(upsertChat);
+      persistChatMap();
+    });
+
+    sock.ev.on("chats.update", (updates) => {
+      (updates || []).forEach((chat) => {
+        upsertChat({
+          jid: chat.id,
+          name: chat.name || chat.pushName || chat.notify || chat.id || "Unknown",
+          last_message: "Recent activity",
+          timestamp: Number(chat.conversationTimestamp || 0)
+        });
+      });
+      persistChatMap();
+    });
+
+    sock.ev.on("contacts.upsert", (contacts) => {
+      (contacts || []).forEach((contact) => {
+        const jid = contact?.id;
+        if (!jid || jid === "status@broadcast") return;
+        upsertChat({
+          jid,
+          name: contact?.name || contact?.notify || contact?.verifiedName || jid,
+          last_message: "Recent activity",
+          timestamp: Math.floor(Date.now() / 1000)
+        });
+      });
+      persistChatMap();
+    });
+
+    sock.ev.on("messages.upsert", ({ messages, type }) => {
+      console.log(`[BRIDGE] messages.upsert: type=${type}, count=${messages?.length || 0}`);
+
+      // Only process 'notify' type for incoming messages
+      if (type !== "notify") return;
+
+      (messages || []).forEach((message) => {
+        const jid = message?.key?.remoteJid;
+        if (!jid || jid === "status@broadcast" || isJidNewsletter(jid)) return;
+
+        const text = extractMessageText(message?.message);
+        const timestamp = messageTimestampToNumber(message?.messageTimestamp);
+        const msgId = message?.key?.id;
+        const isFromMe = message?.key?.fromMe === true;
+        const senderName = isFromMe ? "You" : (message?.pushName || jid);
+
+        console.log(`[BRIDGE] Message: id=${msgId}, jid=${jid}, from_me=${isFromMe}, text="${text.substring(0, 50)}"`);
+
+        upsertChat({
+          jid,
+          name: senderName,
+          last_message: text,
+          timestamp
+        });
+        upsertMessage({
+          message_id: msgId || `${jid}-${timestamp}`,
+          jid,
+          sender: senderName,
+          text,
+          timestamp,
+          from_me: isFromMe
+        });
+      });
+      persistMessageMap();
+      persistChatMap();
+    });
+
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, qr, lastDisconnect } = update;
+
+      if (qr) {
+        latestQr = await QRCode.toDataURL(qr);
+        writeJson(statusFile, {
+          tenant_id: tenantId,
+          linked: false,
+          qr_base64: latestQr,
+          status: "awaiting_scan"
+        });
+      }
+
+      if (connection === "open") {
+        reconnecting = false;
+        linked = true;
+        console.log("[BRIDGE] Connected to WhatsApp");
+        writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 });
+        writeJson(statusFile, {
+          tenant_id: tenantId,
+          linked: true,
+          qr_base64: latestQr,
+          status: "linked"
+        });
+      }
+
+      if (connection === "close") {
+        linked = false;
+        console.log("[BRIDGE] Disconnected");
+        const reason = lastDisconnect?.error?.message || "connection_closed";
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        writeJson(statusFile, {
+          tenant_id: tenantId,
+          linked: false,
+          qr_base64: latestQr,
+          status: reason
+        });
+        if (shouldReconnect && !reconnecting) {
+          reconnecting = true;
+          const baseDelay = 1000;
+          const maxDelay = 300000;
+          let attempts = parseInt(readJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 }).attempts || 0, 10);
+          attempts++;
+          writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts });
+
+          const delay = Math.min(baseDelay * Math.pow(2, Math.min(attempts, 8)), maxDelay);
+          const jitter = Math.random() * 1000;
+          const actualDelay = delay + jitter;
+
+          console.log(`[BRIDGE] Reconnecting in ${Math.round(actualDelay / 1000)}s (attempt ${attempts})`);
           writeJson(statusFile, {
             tenant_id: tenantId,
             linked: false,
             qr_base64: latestQr,
-            status: "awaiting_scan"
+            status: `reconnecting_attempt_${attempts}_in_${Math.round(actualDelay / 1000)}s`
           });
-        }
 
-        if (connection === "open") {
-          linked = true;
-          console.log("[BRIDGE] Connected to WhatsApp");
-          writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 });
-          writeJson(statusFile, {
-            tenant_id: tenantId,
-            linked: true,
-            qr_base64: latestQr,
-            status: "linked"
-          });
-          persistChatMap();
-        }
-
-        if (connection === "close") {
-          linked = false;
-          console.log("[BRIDGE] Disconnected");
-          const reason = lastDisconnect?.error?.message || "connection_closed";
-          const statusCode = lastDisconnect?.error?.output?.statusCode;
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-          writeJson(statusFile, {
-            tenant_id: tenantId,
-            linked: false,
-            qr_base64: latestQr,
-            status: reason
-          });
-        }
-      }
-
-      // Handle credential updates
-      if (events["creds.update"]) {
-        await saveCreds();
-      }
-
-      // Handle initial history sync
-      if (events["messaging-history.set"]) {
-        const { chats, messages } = events["messaging-history.set"];
-        console.log(`[BRIDGE] History sync: ${chats?.length || 0} chats, ${messages?.length || 0} messages`);
-
-        if (chats?.length) {
-          const compact = compactChats(chats);
-          compact.forEach(upsertChat);
-          persistChatMap();
-        }
-
-        if (messages?.length) {
-          messages.forEach((msg) => {
-            const jid = msg?.key?.remoteJid;
-            if (!jid || jid === "status@broadcast" || isJidNewsletter(jid)) return;
-            const text = extractMessageText(msg?.message);
-            const timestamp = messageTimestampToNumber(msg?.messageTimestamp);
-            const msgId = msg?.key?.id || `${jid}-${timestamp}`;
-            const isFromMe = msg?.key?.fromMe === true;
-
-            upsertChat({
-              jid,
-              name: msg?.pushName || jid,
-              last_message: text,
-              timestamp
+          setTimeout(() => {
+            startSocket().catch((err) => {
+              console.error(`[BRIDGE] Restart failed: ${err?.message || err}`);
+              reconnecting = false;
             });
-            upsertMessage({
-              message_id: msgId,
-              jid,
-              sender: isFromMe ? "You" : (msg?.pushName || jid),
-              text,
-              timestamp,
-              from_me: isFromMe
-            });
-          });
-          persistMessageMap();
-          persistChatMap();
+          }, actualDelay);
         }
-      }
-
-      // Handle incoming messages (this is where we detect NEW messages for auto-reply)
-      if (events["messages.upsert"]) {
-        const upsert = events["messages.upsert"];
-        console.log(`[BRIDGE] messages.upsert: type=${upsert.type}, count=${upsert.messages?.length || 0}`);
-
-        // Only process 'notify' type - these are new messages
-        if (upsert.type === "notify") {
-          for (const msg of upsert.messages) {
-            const jid = msg?.key?.remoteJid;
-            if (!jid || jid === "status@broadcast" || isJidNewsletter(jid)) continue;
-
-            const text = extractMessageText(msg?.message);
-            const timestamp = messageTimestampToNumber(msg?.messageTimestamp);
-            const msgId = msg?.key?.id;
-            const isFromMe = msg?.key?.fromMe === true;
-            const senderName = isFromMe ? "You" : (msg?.pushName || jid);
-
-            console.log(`[BRIDGE] New message: id=${msgId}, jid=${jid}, from_me=${isFromMe}, text="${text.substring(0, 50)}"`);
-
-            upsertChat({
-              jid,
-              name: senderName,
-              last_message: text,
-              timestamp
-            });
-            upsertMessage({
-              message_id: msgId || `${jid}-${timestamp}`,
-              jid,
-              sender: senderName,
-              text,
-              timestamp,
-              from_me: isFromMe
-            });
-          }
-          persistMessageMap();
-          persistChatMap();
-        }
-      }
-
-      // Handle chat updates
-      if (events["chats.upsert"]) {
-        const compact = compactChats(events["chats.upsert"] || []);
-        compact.forEach(upsertChat);
-        persistChatMap();
-      }
-
-      if (events["chats.update"]) {
-        (events["chats.update"] || []).forEach((chat) => {
-          upsertChat({
-            jid: chat.id,
-            name: chat.name || chat.pushName || chat.id || "Unknown",
-            last_message: "Recent activity",
-            timestamp: Number(chat.conversationTimestamp || 0)
-          });
-        });
-        persistChatMap();
-      }
-
-      // Handle contact updates
-      if (events["contacts.upsert"]) {
-        (events["contacts.upsert"] || []).forEach((contact) => {
-          const jid = contact?.id;
-          if (!jid || jid === "status@broadcast") return;
-          upsertChat({
-            jid,
-            name: contact?.name || contact?.notify || contact?.verifiedName || jid,
-            last_message: "Recent activity",
-            timestamp: Math.floor(Date.now() / 1000)
-          });
-        });
-        persistChatMap();
       }
     });
 
     // Periodically persist and process outbox
     setInterval(() => {
-      if (linked) {
-        try {
-          persistChatMap();
-          persistMessageMap();
-          processOutbox(sock).catch(() => {});
-        } catch (_) {}
-      }
+      if (!linked) return;
+      try {
+        persistChatMap();
+        persistMessageMap();
+        processOutbox(sock).catch(() => {});
+      } catch (_) {}
     }, 5000);
-
-    // Handle reconnection with backoff
-    sock.ws.on("close", () => {
-      if (linked) {
-        linked = false;
-        console.log("[BRIDGE] WebSocket closed, attempting reconnect...");
-        const baseDelay = 1000;
-        const maxDelay = 300000;
-        let attempts = parseInt(readJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 }).attempts || 0, 10);
-        attempts++;
-        writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts });
-
-        const delay = Math.min(baseDelay * Math.pow(2, Math.min(attempts, 8)), maxDelay);
-        const jitter = Math.random() * 1000;
-        const actualDelay = delay + jitter;
-
-        console.log(`[BRIDGE] Reconnecting in ${Math.round(actualDelay / 1000)}s (attempt ${attempts})`);
-        writeJson(statusFile, {
-          tenant_id: tenantId,
-          linked: false,
-          qr_base64: latestQr,
-          status: `reconnecting_attempt_${attempts}_in_${Math.round(actualDelay / 1000)}s`
-        });
-
-        setTimeout(startSocket, actualDelay);
-      }
-    });
-
-    return sock;
-  }
+  };
 
   await startSocket();
 
-  // Keep process alive
   setInterval(() => {}, 60_000);
 }
 
