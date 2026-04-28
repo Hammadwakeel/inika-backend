@@ -186,6 +186,14 @@ def ensure_whatsapp_message_table(conn: sqlite3.Connection) -> None:
 
 
 def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
+    # Check if table exists and has old schema
+    try:
+        conn.execute("SELECT msg_hash FROM auto_reply_log LIMIT 1")
+        # Old schema exists, recreate with new schema
+        conn.execute("DROP TABLE auto_reply_log")
+    except Exception:  # Table doesn't exist or has new schema
+        pass
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS auto_reply_log (
