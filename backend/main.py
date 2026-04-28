@@ -190,9 +190,9 @@ def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS auto_reply_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            msg_hash TEXT NOT NULL UNIQUE,
+            source_message_id TEXT NOT NULL UNIQUE,
             jid TEXT NOT NULL,
-            msg_preview TEXT NOT NULL DEFAULT '',
+            response TEXT NOT NULL DEFAULT '',
             sent_at INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -201,24 +201,18 @@ def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _message_hash(jid: str, text: str, timestamp: int) -> str:
-    """Create content-based hash for deduplication."""
-    import hashlib
-    key = f"{jid}:{text}:{timestamp}"
-    return hashlib.sha256(key.encode()).hexdigest()[:16]
+# Per-conversation rate limiting: track last reply time per jid
+_last_reply_time: dict[str, float] = {}
+_REPLY_COOLDOWN = 10  # seconds between replies per conversation
 
 
 def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return only genuinely NEW incoming messages that haven't been replied to yet.
-
-    Uses content-based deduplication (hash of jid+text+timestamp) and only
-    replies to messages within the last 60 seconds to prevent re-triggering.
-    """
+    """Return only genuinely NEW incoming messages that haven't been replied to yet."""
     if not messages:
         return []
 
     now = int(time.time())
-    cutoff = now - 60  # Only consider messages from last 60 seconds
+    cutoff = now - 120  # Only consider messages from last 2 minutes
 
     db_path = tenant_db(tenant_id)
     conn = sqlite3.connect(db_path)
@@ -226,18 +220,15 @@ def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) ->
     try:
         ensure_auto_reply_log_table(conn)
 
-        # Get all recent replies to check for duplicates
-        replied = conn.execute(
-            "SELECT msg_hash, sent_at FROM auto_reply_log WHERE sent_at > ?",
-            (cutoff,),
-        ).fetchall()
-        replied_hashes = {str(row["msg_hash"]) for row in replied}
+        # Get all replied message IDs
+        replied = conn.execute("SELECT source_message_id FROM auto_reply_log").fetchall()
+        replied_ids = {str(row["source_message_id"]) for row in replied}
 
-        # Clean up old reply logs (keep only last 5 minutes)
-        conn.execute("DELETE FROM auto_reply_log WHERE sent_at < ?", (now - 300,))
+        # Clean up old reply logs (keep only last 10 minutes)
+        conn.execute("DELETE FROM auto_reply_log WHERE sent_at < ?", (now - 600,))
         conn.commit()
 
-        # Filter: only NEW incoming messages that are recent
+        # Filter: only NEW incoming messages
         new_incoming = []
         for msg in messages:
             msg_id = str(msg.get("message_id", "")).strip()
@@ -248,14 +239,19 @@ def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) ->
 
             if from_me or not msg_id or not text:
                 continue
-            if jid == "status@broadcast":
+            if jid == "status@broadcast" or "@g.us" in jid:  # Skip group chats
                 continue
             if timestamp < cutoff:
                 continue  # Too old, ignore
 
-            msg_hash = _message_hash(jid, text, timestamp)
-            if msg_hash in replied_hashes:
+            if msg_id in replied_ids:
                 continue  # Already auto-replied
+
+            # Per-conversation rate limit
+            conversation_key = f"{tenant_id}:{jid}"
+            last_reply = _last_reply_time.get(conversation_key, 0)
+            if now - last_reply < _REPLY_COOLDOWN:
+                continue  # Too soon since last reply to this conversation
 
             new_incoming.append(msg)
 
@@ -264,23 +260,25 @@ def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) ->
         conn.close()
 
 
-def log_auto_reply(tenant_id: str, jid: str, text: str, timestamp: int, response: str) -> None:
+def log_auto_reply(tenant_id: str, jid: str, msg_id: str, response: str) -> None:
     """Log that an auto-reply was sent to prevent duplicates."""
     db_path = tenant_db(tenant_id)
-    msg_hash = _message_hash(jid, text, timestamp)
     conn = sqlite3.connect(db_path)
     try:
         ensure_auto_reply_log_table(conn)
         conn.execute(
             """
-            INSERT OR IGNORE INTO auto_reply_log (msg_hash, jid, msg_preview, sent_at)
+            INSERT OR IGNORE INTO auto_reply_log (source_message_id, jid, response, sent_at)
             VALUES (?, ?, ?, ?)
             """,
-            (msg_hash, jid, text[:100], int(time.time())),
+            (msg_id, jid, response[:500], int(time.time())),
         )
         conn.commit()
     finally:
         conn.close()
+        # Update rate limit tracker
+        conversation_key = f"{tenant_id}:{jid}"
+        _last_reply_time[conversation_key] = time.time()
 
 
 def persist_chats(tenant_id: str, chats: list[dict[str, Any]]) -> None:
@@ -501,8 +499,7 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
             )
 
             # Log that we replied to prevent duplicates
-            msg_timestamp = int(message.get("timestamp", 0))
-            log_auto_reply(tenant_id, jid, text, msg_timestamp, response_text)
+            log_auto_reply(tenant_id, jid, msg_id, response_text)
 
             print(f"Auto-reply sent: {msg_id} -> {jid}")
 
