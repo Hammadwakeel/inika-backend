@@ -32,6 +32,10 @@ TENANTS_ROOT = BASE_DIR / "data" / "tenants"
 BRIDGE_SCRIPT = Path(__file__).resolve().parent / "whatsapp_bridge.js"
 BRIDGE_PROCESSES: dict[str, subprocess.Popen[Any]] = {}
 
+# Rate limiting: track last auto-reply time per tenant
+_AUTO_REPLY_COOLDOWN = 5  # seconds between auto-replies per tenant
+_last_auto_reply_time: dict[str, float] = {}
+
 
 class SendMessageRequest(BaseModel):
     tenant_id: str = Field(min_length=2, max_length=64)
@@ -190,9 +194,9 @@ def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS auto_reply_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_message_id TEXT NOT NULL UNIQUE,
+            msg_hash TEXT NOT NULL UNIQUE,
             jid TEXT NOT NULL,
-            response TEXT NOT NULL DEFAULT '',
+            msg_preview TEXT NOT NULL DEFAULT '',
             sent_at INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -201,53 +205,60 @@ def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _message_hash(jid: str, text: str, timestamp: int) -> str:
+    """Create content-based hash for deduplication."""
+    import hashlib
+    key = f"{jid}:{text}:{timestamp}"
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
 def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return only genuinely NEW incoming messages that haven't been replied to yet."""
+    """Return only genuinely NEW incoming messages that haven't been replied to yet.
+
+    Uses content-based deduplication (hash of jid+text+timestamp) and only
+    replies to messages within the last 60 seconds to prevent re-triggering.
+    """
     if not messages:
         return []
 
-    # Get all message IDs from this batch
-    msg_ids = [m.get("message_id", "") for m in messages if m.get("message_id")]
+    now = int(time.time())
+    cutoff = now - 60  # Only consider messages from last 60 seconds
 
     db_path = tenant_db(tenant_id)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
-        ensure_whatsapp_message_table(conn)
         ensure_auto_reply_log_table(conn)
 
-        # Find which message IDs already exist in DB
-        if msg_ids:
-            placeholders = ",".join("?" * len(msg_ids))
-            existing = conn.execute(
-                f"SELECT message_id FROM whatsapp_messages WHERE message_id IN ({placeholders})",
-                msg_ids,
-            ).fetchall()
-            existing_ids = {str(row["message_id"]) for row in existing}
-        else:
-            existing_ids = set()
-
-        # Find which messages have already been auto-replied
+        # Get all recent replies to check for duplicates
         replied = conn.execute(
-            "SELECT source_message_id FROM auto_reply_log"
+            "SELECT msg_hash, sent_at FROM auto_reply_log WHERE sent_at > ?",
+            (cutoff,),
         ).fetchall()
-        replied_ids = {str(row["source_message_id"]) for row in replied}
+        replied_hashes = {str(row["msg_hash"]) for row in replied}
 
-        # Filter: only NEW incoming messages that haven't been replied to
+        # Clean up old reply logs (keep only last 5 minutes)
+        conn.execute("DELETE FROM auto_reply_log WHERE sent_at < ?", (now - 300,))
+        conn.commit()
+
+        # Filter: only NEW incoming messages that are recent
         new_incoming = []
         for msg in messages:
             msg_id = str(msg.get("message_id", "")).strip()
             from_me = bool(msg.get("from_me", False))
             jid = str(msg.get("jid", "")).strip()
             text = str(msg.get("text", "")).strip()
+            timestamp = int(msg.get("timestamp", 0))
 
             if from_me or not msg_id or not text:
                 continue
             if jid == "status@broadcast":
                 continue
-            if msg_id in existing_ids:
-                continue  # Already in DB (persisted on previous poll)
-            if msg_id in replied_ids:
+            if timestamp < cutoff:
+                continue  # Too old, ignore
+
+            msg_hash = _message_hash(jid, text, timestamp)
+            if msg_hash in replied_hashes:
                 continue  # Already auto-replied
 
             new_incoming.append(msg)
@@ -257,7 +268,7 @@ def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) ->
         conn.close()
 
 
-def log_auto_reply(tenant_id: str, source_message_id: str, jid: str, response: str) -> None:
+def log_auto_reply(tenant_id: str, jid: str, text: str, timestamp: int, response: str) -> None:
     """Log that an auto-reply was sent to prevent duplicates."""
     db_path = tenant_db(tenant_id)
     conn = sqlite3.connect(db_path)
@@ -426,6 +437,13 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
     import threading
     from backend.app.services.memory_manager import get_agent_settings
 
+    # Rate limit per tenant
+    now = time.time()
+    last_time = _last_auto_reply_time.get(tenant_id, 0)
+    if now - last_time < _AUTO_REPLY_COOLDOWN:
+        return  # Still in cooldown
+    _last_auto_reply_time[tenant_id] = now
+
     try:
         settings = get_agent_settings(tenant_id)
         if not settings.get("auto_reply_enabled", False):
@@ -483,7 +501,8 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
             )
 
             # Log that we replied to prevent duplicates
-            log_auto_reply(tenant_id, msg_id, jid, response_text)
+            msg_timestamp = int(message.get("timestamp", 0))
+            log_auto_reply(tenant_id, jid, text, msg_timestamp, response_text)
 
             print(f"Auto-reply sent: {msg_id} -> {jid}")
 
