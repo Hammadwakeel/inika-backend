@@ -12,20 +12,27 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY backend/requirements.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY backend/ ./backend/
-COPY data/ ./data/
+# Copy app structure (creating backend/ subfolder for imports)
+COPY app/ ./backend/app/
+COPY main.py ./backend/main.py
+COPY knowledge_engine.py ./backend/knowledge_engine.py
+COPY message_dispatcher.py ./backend/message_dispatcher.py
+COPY whatsapp_bridge.js ./backend/whatsapp_bridge.js
+COPY wiki_engine.py ./backend/wiki_engine.py
 
 # Pre-install Node.js dependencies for WhatsApp bridge
-COPY backend/package.json ./backend/package.json
+COPY package.json ./backend/package.json
 WORKDIR /app/backend
 RUN npm install --production || npm install || true
 WORKDIR /app
+
+# Create directories for tenant data
+RUN mkdir -p /app/data/tenants
 
 # Environment variables - Cloud Run uses PORT
 ENV PYTHONUNBUFFERED=1 \
