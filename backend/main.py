@@ -32,10 +32,6 @@ TENANTS_ROOT = BASE_DIR / "data" / "tenants"
 BRIDGE_SCRIPT = Path(__file__).resolve().parent / "whatsapp_bridge.js"
 BRIDGE_PROCESSES: dict[str, subprocess.Popen[Any]] = {}
 
-# Rate limiting: track last auto-reply time per tenant
-_AUTO_REPLY_COOLDOWN = 5  # seconds between auto-replies per tenant
-_last_auto_reply_time: dict[str, float] = {}
-
 
 class SendMessageRequest(BaseModel):
     tenant_id: str = Field(min_length=2, max_length=64)
@@ -271,15 +267,16 @@ def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) ->
 def log_auto_reply(tenant_id: str, jid: str, text: str, timestamp: int, response: str) -> None:
     """Log that an auto-reply was sent to prevent duplicates."""
     db_path = tenant_db(tenant_id)
+    msg_hash = _message_hash(jid, text, timestamp)
     conn = sqlite3.connect(db_path)
     try:
         ensure_auto_reply_log_table(conn)
         conn.execute(
             """
-            INSERT OR IGNORE INTO auto_reply_log (source_message_id, jid, response, sent_at)
+            INSERT OR IGNORE INTO auto_reply_log (msg_hash, jid, msg_preview, sent_at)
             VALUES (?, ?, ?, ?)
             """,
-            (source_message_id, jid, response, int(time.time())),
+            (msg_hash, jid, text[:100], int(time.time())),
         )
         conn.commit()
     finally:
@@ -446,14 +443,6 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
     text = str(message.get("text", "")).strip()
 
     print(f"[AUTO-REPLY] Checking msg: jid={jid}, text={text[:30]}...")
-
-    # Rate limit per tenant
-    now = time.time()
-    last_time = _last_auto_reply_time.get(tenant_id, 0)
-    if now - last_time < _AUTO_REPLY_COOLDOWN:
-        print(f"[AUTO-REPLY] Rate limited (cooldown) for {tenant_id}")
-        return
-    _last_auto_reply_time[tenant_id] = now
 
     try:
         settings = get_agent_settings(tenant_id)
