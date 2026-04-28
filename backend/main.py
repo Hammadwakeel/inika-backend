@@ -465,6 +465,9 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
         return
 
     def _do_reply():
+        # Log BEFORE processing to prevent duplicate replies from concurrent SSE polls
+        log_auto_reply(tenant_id, jid, msg_id, "[pending]")
+
         try:
             from backend.app.services.router import smart_query_router
 
@@ -473,7 +476,7 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
                 guest_id=jid,
                 user_msg=text,
                 background_tasks=None,
-                llm_timeout=25,
+                llm_timeout=30,
             )
 
             response_text = str(result.get("response", "")).strip()
@@ -505,9 +508,6 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
                     "timestamp": int(time.time()),
                 }],
             )
-
-            # Log that we replied to prevent duplicates
-            log_auto_reply(tenant_id, jid, msg_id, response_text)
 
             print(f"Auto-reply sent: {msg_id} -> {jid}")
 
