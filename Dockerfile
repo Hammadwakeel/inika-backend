@@ -34,21 +34,20 @@ WORKDIR /app
 # Create directories for tenant data
 RUN mkdir -p /app/data/tenants
 
-# Environment variables - Cloud Run uses PORT
+# Cloud Run injects PORT env var (default 8080)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PYTHONDONTWRITEBYTECODE=1
 
 # Non-root user for security
 RUN useradd -m -u 65532 appuser
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Health check - Cloud Run expects this
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/health/live || exit 1
+    CMD curl -f http://localhost:8080/health/live || exit 1
 
 # Cloud Run uses CMD directly, uvicorn picks up PORT from env
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
