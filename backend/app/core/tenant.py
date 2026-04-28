@@ -29,3 +29,14 @@ def tenant_dir(tenant_id: str) -> Path:
 def tenant_db_path(tenant_id: str) -> Path:
     return tenant_dir(tenant_id) / DB_FILENAME
 
+
+def list_tenant_ids_with_db() -> list[str]:
+    """List all tenant IDs that have a database file."""
+    if not TENANTS_ROOT.exists():
+        return []
+    tenant_ids = []
+    for path in TENANTS_ROOT.iterdir():
+        if path.is_dir() and (path / DB_FILENAME).exists():
+            tenant_ids.append(path.name)
+    return tenant_ids
+
