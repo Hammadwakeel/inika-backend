@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from backend.app.core.config import TENANTS_ROOT
 from backend.app.core.tenant import validate_tenant_id
 from backend.app.models.schemas import LoginRequest, TokenResponse
 from backend.app.services.auth_service import (
@@ -17,6 +20,40 @@ from backend.app.services.auth_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def username_exists_globally(username: str, exclude_tenant_id: str | None = None) -> tuple[bool, str | None]:
+    """Check if username exists in any tenant. Returns (exists, tenant_id)."""
+    if not TENANTS_ROOT.exists():
+        return False, None
+
+    normalized_username = username.lower().strip()
+
+    for tenant_path in TENANTS_ROOT.iterdir():
+        if not tenant_path.is_dir():
+            continue
+
+        if exclude_tenant_id and tenant_path.name == exclude_tenant_id:
+            continue
+
+        db_path = tenant_path / "axiom.db"
+        if not db_path.exists():
+            continue
+
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT 1 FROM users WHERE LOWER(username) = ?",
+                (normalized_username,),
+            ).fetchone()
+            conn.close()
+            if row:
+                return True, tenant_path.name
+        except Exception:
+            continue
+
+    return False, None
 
 router = APIRouter(tags=["auth"])
 
@@ -95,12 +132,12 @@ def login(payload: LoginRequest, response: Response, request: Request) -> TokenR
     tenant_id = validate_tenant_id(payload.tenant_id)
     logger.info(f"Validated tenant_id: {tenant_id}")
 
+    ip_address = request.client.host if request.client else "unknown"
+    logger.info(f"IP address: {ip_address}")
+
     try:
         with get_tenant_conn(tenant_id) as conn:
             init_auth_attempts_table(conn)
-
-            ip_address = request.client.host if request.client else "unknown"
-            logger.info(f"IP address: {ip_address}")
             is_locked, remaining = is_account_locked(conn, payload.username, ip_address)
             logger.info(f"Account locked: {is_locked}, remaining: {remaining}")
 
@@ -111,31 +148,21 @@ def login(payload: LoginRequest, response: Response, request: Request) -> TokenR
                 )
 
             row = conn.execute(
-                "SELECT username, hashed_password FROM users WHERE username = ?",
+                "SELECT username, hashed_password FROM users WHERE LOWER(username) = LOWER(?)",
                 (payload.username,),
             ).fetchone()
             logger.info(f"User row found: {row is not None}")
-            tenant_user_count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-            logger.info(f"Total users in tenant: {tenant_user_count}")
-            if row is None and tenant_user_count == 0:
-                logger.info("Creating new user")
-                conn.execute(
-                    "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
-                    (payload.username, hash_password(payload.password)),
-                )
-                conn.commit()
-                row = conn.execute(
-                    "SELECT username, hashed_password FROM users WHERE username = ?",
-                    (payload.username,),
-                ).fetchone()
-                logger.info(f"New user created, row: {row is not None}")
+
+            if row is None:
+                raise HTTPException(status_code=401, detail="Invalid username or password")
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Database error during login: {e}")
         raise
 
-    if row is None or not verify_password(payload.password, row["hashed_password"]):
+    if not verify_password(payload.password, row["hashed_password"]):
         logger.warning(f"Invalid credentials for user: {payload.username}")
         with get_tenant_conn(tenant_id) as conn:
             init_auth_attempts_table(conn)
@@ -185,13 +212,21 @@ def bootstrap_user(payload: LoginRequest) -> dict:
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
 
+    # Check global username uniqueness across all tenants
+    exists, existing_tenant = username_exists_globally(payload.username)
+    if exists:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Username '{payload.username}' is already taken in tenant '{existing_tenant}'"
+        )
+
     with get_tenant_conn(tenant_id) as conn:
         existing = conn.execute(
-            "SELECT 1 FROM users WHERE username = ?",
+            "SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)",
             (payload.username,),
         ).fetchone()
         if existing:
-            raise HTTPException(status_code=409, detail="User already exists")
+            raise HTTPException(status_code=409, detail="User already exists in this tenant")
         conn.execute(
             "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
             (payload.username, hash_password(payload.password)),
