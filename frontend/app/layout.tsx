@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import NavigationWrapper from "@/components/NavigationWrapper";
 
 export const metadata: Metadata = {
   title: "Inika Bot Platform",
@@ -15,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased min-h-screen">
-        {children}
+        <NavigationWrapper>{children}</NavigationWrapper>
       </body>
     </html>
   );

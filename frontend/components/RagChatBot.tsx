@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Brain, Send, Loader2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, MessageSquare, Loader, Sparkles } from "lucide-react";
-import AppNav from "./AppNav";
+import { Brain, Send, Loader2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, MessageSquare, Sparkles } from "lucide-react";
 import gsap from "gsap";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -188,18 +187,18 @@ export default function RagChatBot() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
-      <AppNav />
-
-      <main className="mx-auto max-w-4xl px-8 py-12">
-        <header className="mb-12 border-b border-black pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-white font-sans text-black selection:bg-black selection:text-white">
+      <main className="mx-auto max-w-7xl px-6 py-12">
+        <header className="mb-10 border-y border-black bg-white px-6 py-8">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
               <Brain className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-mono text-2xl font-bold tracking-tight">RAG_CHATBOT</h1>
-              <p className="font-mono text-xs text-gray-500">// knowledge-powered AI assistant</p>
+              <h1 className="text-3xl font-black tracking-tight">RAG CHATBOT</h1>
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                // Knowledge-powered AI assistant
+              </p>
             </div>
           </div>
         </header>
@@ -389,8 +388,8 @@ export default function RagChatBot() {
           </div>
         </div>
 
-        <footer className="mt-16 border-t border-black pt-8">
-          <div className="flex items-center justify-between font-mono text-xs text-gray-400">
+        <footer className="mt-16 border-t border-black bg-black px-6 py-8">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
             <span>RAG_CHATBOT v1.0.0</span>
             <span>AXIOM_PLATFORM</span>
           </div>

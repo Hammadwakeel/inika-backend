@@ -10,6 +10,7 @@ from backend.app.services.llm_service import chat_completion
 from backend.app.services.memory_manager import (
     append_session_message,
     ensure_session_schema,
+    get_agent_settings,
     get_message_count,
     get_or_create_session,
     get_rag_threshold,
@@ -114,34 +115,45 @@ def smart_query_router(
     summary = get_session_summary(tenant_id=tenant_id, session_id=session_id)
     history_rows = get_recent_messages(tenant_id=tenant_id, session_id=session_id, limit=10)
 
-    log_search_event(
-        tenant_id=tenant_id,
-        session_id=session_id,
-        user_query=user_msg,
-        event_type="SEARCHING",
-        detail="RAG_SCAN_LOCAL_INDEX",
-        source="faiss",
-    )
-    rag_context, rag_score = rag_search(tenant_id=tenant_id, query=user_msg, top_k=4)
-    live_query = is_live_information_query(user_msg)
-    rag_threshold = get_rag_threshold(tenant_id)
+    # Get agent settings
+    agent_settings = get_agent_settings(tenant_id)
+    use_knowledge_base = agent_settings.get("use_knowledge_base", True)
+    use_web_search_setting = agent_settings.get("use_web_search", False)
 
-    # Also try wiki search as additional context source
+    rag_context = []
+    rag_score = 0.0
     wiki_context = []
     wiki_score = 0.0
-    try:
-        from backend.wiki_engine import search_wiki
-        wiki_context, wiki_score = search_wiki(tenant_id, user_msg, top_k=2)
-    except Exception:  # noqa: BLE001
-        pass
+
+    # Only search knowledge base if enabled
+    if use_knowledge_base:
+        log_search_event(
+            tenant_id=tenant_id,
+            session_id=session_id,
+            user_query=user_msg,
+            event_type="SEARCHING",
+            detail="RAG_SCAN_LOCAL_INDEX",
+            source="faiss",
+        )
+        rag_context, rag_score = rag_search(tenant_id=tenant_id, query=user_msg, top_k=4)
+
+        # Also try wiki search as additional context source
+        try:
+            from backend.wiki_engine import search_wiki
+            wiki_context, wiki_score = search_wiki(tenant_id, user_msg, top_k=2)
+        except Exception:  # noqa: BLE001
+            pass
+
+    live_query = is_live_information_query(user_msg)
+    rag_threshold = get_rag_threshold(tenant_id)
 
     context_rows = rag_context
     route = "RAG"
     context_source = "faiss"
 
-    # Determine best context: prefer RAG if score is reasonable, otherwise wiki, otherwise web
-    use_rag = rag_score >= rag_threshold and rag_context
-    use_wiki = wiki_score >= 0.3 and wiki_context and not use_rag
+    # Determine best context based on agent settings and scores
+    use_rag = use_knowledge_base and rag_score >= rag_threshold and rag_context
+    use_wiki = use_knowledge_base and wiki_score >= 0.3 and wiki_context and not use_rag
 
     if use_rag:
         log_search_event(
@@ -166,8 +178,8 @@ def smart_query_router(
             score=wiki_score,
             source="router",
         )
-    elif live_query:
-        # Only use web search for live queries (weather, news, sports, etc.)
+    elif use_web_search_setting and live_query:
+        # Only use web search if enabled in settings AND it's a live query
         route = "WEB_SEARCH"
         context_rows = web_search(query=user_msg, max_results=5)
         context_source = "web"
@@ -176,7 +188,7 @@ def smart_query_router(
             session_id=session_id,
             user_query=user_msg,
             event_type="ROUTING",
-            detail=f"TRIGGERING_WEB_SEARCH (LIVE_INFO_QUERY)",
+            detail=f"TRIGGERING_WEB_SEARCH (LIVE_INFO_QUERY, ENABLED_IN_SETTINGS)",
             score=rag_score,
             source="router",
         )
@@ -189,9 +201,21 @@ def smart_query_router(
             source="web",
         )
     else:
-        # No RAG or wiki results, but NOT a live query - use what we have
-        # Don't fall back to web search for general questions about the hotel
-        if rag_context:
+        # No RAG or wiki results - use empty context or web if enabled for non-live queries
+        if use_web_search_setting and not live_query:
+            route = "WEB_SEARCH"
+            context_rows = web_search(query=user_msg, max_results=5)
+            context_source = "web"
+            log_search_event(
+                tenant_id=tenant_id,
+                session_id=session_id,
+                user_query=user_msg,
+                event_type="ROUTING",
+                detail=f"USING_WEB_SEARCH (ENABLED_IN_SETTINGS)",
+                score=rag_score,
+                source="router",
+            )
+        elif rag_context:
             log_search_event(
                 tenant_id=tenant_id,
                 session_id=session_id,

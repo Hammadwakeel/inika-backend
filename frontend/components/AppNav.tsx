@@ -2,72 +2,73 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, MessageSquare, Brain, User, LogOut, MapPin, Calendar, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LayoutDashboard, MessageSquare, Brain, User, LogOut, MapPin, Calendar } from "lucide-react";
+import { logout } from "@/lib/api";
 
 const LINKS = [
   { href: "/dashboard", label: "DASHBOARD", icon: LayoutDashboard },
   { href: "/journey", label: "JOURNEY", icon: MapPin },
   { href: "/booking", label: "BOOKING", icon: Calendar },
   { href: "/whatsapp", label: "WHATSAPP", icon: MessageSquare },
-  { href: "/rag", label: "RAG", icon: MessageCircle },
   { href: "/knowledge", label: "KNOWLEDGE", icon: Brain },
   { href: "/profile", label: "PROFILE", icon: User },
 ];
 
-async function handleLogout() {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, { method: "POST" });
-    if (res.ok) {
-      localStorage.removeItem("axiom_token");
-      localStorage.removeItem("axiom_username");
-      window.location.href = "/login";
-    }
-  } catch {
-    localStorage.removeItem("axiom_token");
-    localStorage.removeItem("axiom_username");
-    window.location.href = "/login";
-  }
-}
-
 export default function AppNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
-    <nav className="border-b border-black">
-      <div className="mx-auto flex max-w-7xl items-center justify-center">
-        <div className="flex items-center">
-          {LINKS.map((link, idx) => {
+    <nav className="sticky top-0 z-50 border-b border-black/20 bg-transparent text-black backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 p-6">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.3em]"
+        >
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          </span>
+          <span className="hidden sm:inline">Inika Bot Console</span>
+          <span className="sm:hidden">Inika</span>
+        </Link>
+
+        <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
+          {LINKS.map((link) => {
             const active = pathname.startsWith(link.href);
             const Icon = link.icon;
-            const isLast = idx === LINKS.length - 1;
             return (
               <div key={link.href} className="flex items-center">
                 <Link
                   href={link.href}
                   className={`
-                    flex items-center gap-2 border-b-2 px-6 py-4 font-mono text-xs font-semibold uppercase tracking-wider transition-all
+                    flex items-center gap-2 border px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all
                     ${active
                       ? "border-black bg-black text-white"
-                      : "border-transparent text-black hover:border-gray-300 hover:bg-gray-50"
+                      : "border-black/20 text-black hover:border-black hover:bg-zinc-100"
                     }
                   `}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {link.label}
+                  <Icon className="h-3 w-3" />
+                  <span className="hidden md:inline">{link.label}</span>
                 </Link>
-                {!isLast && <div className="h-6 w-px bg-gray-200" />}
               </div>
             );
           })}
-          <div className="h-6 w-px bg-gray-200" />
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-6 py-4 font-mono text-xs font-semibold uppercase tracking-wider text-red-600 transition-all hover:bg-red-50"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            LOGOUT
-          </button>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="ml-auto flex items-center gap-2 border border-red-300 bg-red-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-red-400"
+        >
+          <LogOut className="h-3 w-3" />
+          <span className="hidden md:inline">LOGOUT</span>
+        </button>
       </div>
     </nav>
   );

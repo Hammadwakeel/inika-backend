@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
-import AppNav from "../../components/AppNav";
 import { Calendar, RefreshCw, Loader2, CheckCircle, XCircle, AlertCircle, Users, Clock, Bed } from "lucide-react";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-const ThreeBackground = dynamic(() => import("../../components/ThreeBackground"), { ssr: false });
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -270,31 +266,34 @@ export default function BookingPage() {
   const dueInCount = bookings.filter(b => b.gstatus === "Due In" || b.gstatus === "Confirmed").length;
 
   return (
-    <div ref={pageRef} className="min-h-screen bg-white relative overflow-hidden">
-      <ThreeBackground />
-
-      <main className="relative z-10 mx-auto max-w-6xl px-8 py-12">
-        <header ref={headerRef} className="mb-12 border-b border-black pb-8 opacity-0">
+    <div
+      ref={pageRef}
+      className="relative min-h-screen overflow-x-hidden bg-white font-sans text-black selection:bg-black selection:text-white"
+    >
+      <main className="relative z-10 mx-auto max-w-7xl px-6 py-12">
+        <header ref={headerRef} className="mb-10 border-y border-black bg-white px-6 py-8 opacity-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="header-icon flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="font-mono text-2xl font-bold tracking-tight">BOOKING_HUB</h1>
-                <p className="font-mono text-xs text-gray-500">// real-time guest reservations from Inika API</p>
+                <h1 className="text-3xl font-black tracking-tight">BOOKING HUB</h1>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  // Real-time guest reservations from Inika API
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               {lastSync && (
-                <div className="sync-time font-mono text-xs text-gray-400">
+                <div className="sync-time text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">
                   Last sync: {lastSync}
                 </div>
               )}
               <button
                 onClick={syncBookings}
                 disabled={syncing || !tenantId}
-                className="sync-btn flex items-center gap-2 border border-black bg-black px-4 py-2 font-mono text-sm font-medium text-white transition-all hover:bg-gray-800 disabled:opacity-50"
+                className="sync-btn flex items-center gap-2 border border-black bg-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-zinc-800 disabled:opacity-50"
               >
                 {syncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -305,7 +304,7 @@ export default function BookingPage() {
               </button>
               <button
                 onClick={refreshBookings}
-                className="refresh-btn flex items-center gap-2 border border-black px-4 py-2 font-mono text-sm font-medium transition-all hover:bg-black hover:text-white"
+                className="refresh-btn flex items-center gap-2 border border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition hover:bg-black hover:text-white"
               >
                 <RefreshCw className="h-4 w-4" />
                 REFRESH
@@ -431,8 +430,8 @@ export default function BookingPage() {
           </>
         )}
 
-        <footer ref={footerRef} className="mt-16 border-t border-black pt-8">
-          <div className="flex items-center justify-between font-mono text-xs text-gray-400">
+        <footer ref={footerRef} className="mt-16 border-t border-black bg-black px-6 py-8">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
             <span>BOOKING_HUB v1.0.0</span>
             <span>AXIOM_PLATFORM</span>
             <span>INIKA_API</span>

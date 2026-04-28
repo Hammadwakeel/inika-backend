@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import AppNav from "./AppNav";
 import { MessageSquare, Send, Loader2, Search, X, RefreshCw, RotateCcw } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -268,19 +267,19 @@ export default function ChatView() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <AppNav />
-
-      <main className="mx-auto max-w-6xl px-8 py-12">
-        <header className="mb-12 border-b border-black pb-8">
+    <div className="min-h-screen overflow-x-hidden bg-white font-sans text-black selection:bg-black selection:text-white">
+      <main className="mx-auto max-w-7xl px-6 py-12">
+        <header className="mb-10 border-y border-black bg-white px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="font-mono text-2xl font-bold tracking-tight">WHATSAPP_HUB</h1>
-                <p className="font-mono text-xs text-gray-500">// multi-device messaging gateway</p>
+                <h1 className="text-3xl font-black tracking-tight">WHATSAPP HUB</h1>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  // Multi-device messaging gateway
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -544,8 +543,8 @@ export default function ChatView() {
           </div>
         )}
 
-        <footer className="mt-16 border-t border-black pt-8">
-          <div className="flex items-center justify-between font-mono text-xs text-gray-400">
+        <footer className="mt-16 border-t border-black bg-black px-6 py-8">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
             <span>WHATSAPP_HUB v1.0.0</span>
             <span>AXIOM_PLATFORM</span>
           </div>

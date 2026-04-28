@@ -242,3 +242,24 @@ def get_rag_threshold(tenant_id: str) -> float:
     except (ValueError, TypeError):
         return 0.15
 
+
+def get_agent_settings(tenant_id: str) -> dict[str, bool]:
+    """Get agent settings for auto-reply and sources."""
+    return {
+        "auto_reply_enabled": get_tenant_setting(tenant_id, "auto_reply_enabled", "false").lower() == "true",
+        "use_web_search": get_tenant_setting(tenant_id, "use_web_search", "false").lower() == "true",
+        "use_knowledge_base": get_tenant_setting(tenant_id, "use_knowledge_base", "true").lower() == "true",
+    }
+
+
+def set_agent_settings(tenant_id: str, auto_reply_enabled: bool | None = None,
+                       use_web_search: bool | None = None, use_knowledge_base: bool | None = None) -> dict[str, bool]:
+    """Set agent settings for auto-reply and sources."""
+    if auto_reply_enabled is not None:
+        set_tenant_setting(tenant_id, "auto_reply_enabled", "true" if auto_reply_enabled else "false")
+    if use_web_search is not None:
+        set_tenant_setting(tenant_id, "use_web_search", "true" if use_web_search else "false")
+    if use_knowledge_base is not None:
+        set_tenant_setting(tenant_id, "use_knowledge_base", "true" if use_knowledge_base else "false")
+    return get_agent_settings(tenant_id)
+

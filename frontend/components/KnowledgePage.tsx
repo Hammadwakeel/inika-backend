@@ -1,17 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, FormEvent } from "react";
-import dynamic from "next/dynamic";
-import AppNav from "./AppNav";
-import { Brain, Upload, FileText, Sparkles, Save, Loader2, Database, Trash2, Bot } from "lucide-react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-const ThreeBackground = dynamic(() => import("./ThreeBackground"), { ssr: false });
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
+import { useEffect, useState, FormEvent } from "react";
+import { Brain, Upload, FileText, Sparkles, Save, Loader2, Database } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -58,15 +48,6 @@ export default function KnowledgePage() {
   });
   const [savingAgent, setSavingAgent] = useState(false);
 
-  const pageRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLHeadingElement>(null);
-  const statusBadgesRef = useRef<HTMLDivElement>(null);
-  const uploadSectionRef = useRef<HTMLDivElement>(null);
-  const aiIdentityRef = useRef<HTMLDivElement>(null);
-  const filesSectionRef = useRef<HTMLDivElement>(null);
-  const agentSectionRef = useRef<HTMLDivElement>(null);
-  const footerRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const tenant = window.localStorage.getItem("axiom_tenant_id");
     const storedToken = window.localStorage.getItem("axiom_token");
@@ -77,84 +58,6 @@ export default function KnowledgePage() {
     setTenantId(tenant);
     setToken(storedToken || "");
   }, []);
-
-  // GSAP Entrance Animations
-  useEffect(() => {
-    if (!pageRef.current) return;
-
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-
-      // Header animation
-      tl.from(headerRef.current, {
-        y: -30,
-        opacity: 0,
-        duration: 0.8,
-      });
-
-      // Status badges stagger
-      if (statusBadgesRef.current) {
-        tl.from(statusBadgesRef.current.children, {
-          y: -20,
-          opacity: 0,
-          duration: 0.5,
-          stagger: 0.1,
-        }, "-=0.4");
-      }
-
-      // Main content sections
-      const sections = [uploadSectionRef.current, aiIdentityRef.current, filesSectionRef.current, agentSectionRef.current];
-      sections.forEach((section, i) => {
-        if (section) {
-          tl.from(section, {
-            y: 50,
-            opacity: 0,
-            duration: 0.7,
-          }, i === 0 ? "-=0.2" : "-=0.5");
-        }
-      });
-
-      // Footer
-      if (footerRef.current) {
-        tl.from(footerRef.current, {
-          y: 20,
-          opacity: 0,
-          duration: 0.5,
-        }, "-=0.3");
-      }
-    }, pageRef);
-
-    return () => ctx.revert();
-  }, []);
-
-  // Hover animations for cards
-  const setupCardAnimations = useCallback(() => {
-    const cards = pageRef.current?.querySelectorAll(".card-animate");
-
-    cards?.forEach((card) => {
-      card.addEventListener("mouseenter", () => {
-        gsap.to(card, {
-          y: -4,
-          boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
-          duration: 0.3,
-          ease: "power2.out",
-        });
-      });
-
-      card.addEventListener("mouseleave", () => {
-        gsap.to(card, {
-          y: 0,
-          boxShadow: "0 0 0 rgba(0,0,0,0)",
-          duration: 0.3,
-          ease: "power2.out",
-        });
-      });
-    });
-  }, []);
-
-  useEffect(() => {
-    setupCardAnimations();
-  }, [setupCardAnimations]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -241,17 +144,6 @@ export default function KnowledgePage() {
     setAgentSettings({ ...agentSettings, enabled: newEnabled });
     const tok = window.localStorage.getItem("axiom_token") || '';
 
-    // Animate the toggle
-    const toggleBtn = document.querySelector(".agent-toggle") as HTMLElement;
-    if (toggleBtn) {
-      gsap.to(toggleBtn, {
-        scale: 0.95,
-        duration: 0.1,
-        yoyo: true,
-        repeat: 1,
-      });
-    }
-
     await fetch(`${API_BASE_URL}/agent/settings`, {
       method: "POST",
       credentials: "include",
@@ -280,16 +172,6 @@ export default function KnowledgePage() {
       });
       if (response.ok) {
         setAgentEnabled(agentSettings.enabled);
-        // Success animation
-        const btn = document.querySelector(".save-agent-btn");
-        if (btn) {
-          gsap.to(btn, {
-            backgroundColor: "#22c55e",
-            duration: 0.3,
-            yoyo: true,
-            repeat: 1,
-          });
-        }
       }
     } catch {}
     setSavingAgent(false);
@@ -299,12 +181,6 @@ export default function KnowledgePage() {
     if (!tenantId) return;
     setBusy(true);
     setError(null);
-
-    // Button loading animation
-    const btn = document.querySelector(".save-identity-btn");
-    if (btn) {
-      gsap.to(btn, { scale: 0.98, duration: 0.1 });
-    }
 
     try {
       const tok = window.localStorage.getItem("axiom_token") || '';
@@ -321,35 +197,8 @@ export default function KnowledgePage() {
       const data = (await response.json().catch(() => null)) as { detail?: string } | null;
       if (!response.ok) throw new Error(data?.detail ?? "Failed saving identity.");
       setIdentityDirty(false);
-
-      // Success animation
-      if (btn) {
-        gsap.to(btn, {
-          backgroundColor: "#22c55e",
-          color: "#fff",
-          borderColor: "#22c55e",
-          duration: 0.3,
-        });
-        setTimeout(() => {
-          gsap.to(btn, {
-            backgroundColor: "",
-            color: "",
-            borderColor: "",
-            duration: 0.3,
-          });
-        }, 1000);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed saving identity.");
-      // Error shake animation
-      if (aiIdentityRef.current) {
-        gsap.to(aiIdentityRef.current, {
-          x: -5,
-          duration: 0.05,
-          yoyo: true,
-          repeat: 5,
-        });
-      }
     } finally {
       setBusy(false);
     }
@@ -364,17 +213,6 @@ export default function KnowledgePage() {
     }
     setBusy(true);
     setError(null);
-
-    // Upload button pulse animation
-    const submitBtn = uploadSectionRef.current?.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      gsap.to(submitBtn, {
-        scale: 1.02,
-        duration: 0.2,
-        yoyo: true,
-        repeat: -1,
-      });
-    }
 
     try {
       const formData = new FormData();
@@ -391,32 +229,9 @@ export default function KnowledgePage() {
       setUploadText("");
       setFile(null);
       setError(null);
-
-      // Success animation
-      if (submitBtn) {
-        gsap.killTweensOf(submitBtn);
-        gsap.to(submitBtn, {
-          backgroundColor: "#22c55e",
-          duration: 0.3,
-        });
-      }
     } catch (err) {
-      if (submitBtn) {
-        gsap.killTweensOf(submitBtn);
-      }
       setError(err instanceof Error ? err.message : "Upload failed.");
-      if (uploadSectionRef.current) {
-        gsap.to(uploadSectionRef.current, {
-          borderColor: "#ef4444",
-          duration: 0.3,
-          yoyo: true,
-          repeat: 1,
-        });
-      }
     } finally {
-      if (submitBtn) {
-        gsap.killTweensOf(submitBtn);
-      }
       setBusy(false);
     }
   };
@@ -429,11 +244,6 @@ export default function KnowledgePage() {
     }
     setBusy(true);
     setError(null);
-
-    const zipBtn = event.currentTarget?.querySelector('button[type="submit"]');
-    if (zipBtn) {
-      gsap.to(zipBtn, { scale: 0.98, duration: 0.1 });
-    }
 
     try {
       const formData = new FormData();
@@ -457,37 +267,25 @@ export default function KnowledgePage() {
 
   const progressWidth = `${Math.max(0, Math.min(100, progress))}%`;
 
-  // File item animation
-  const animateFileItem = useCallback((element: HTMLElement, isEntering: boolean) => {
-    if (isEntering) {
-      gsap.from(element, {
-        x: -20,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.out",
-      });
-    }
-  }, []);
-
   return (
-    <div ref={pageRef} className="min-h-screen bg-white relative overflow-hidden">
-      <ThreeBackground />
-
-      <main className="relative z-10 mx-auto max-w-6xl px-8 py-12">
-        <header className="mb-12 border-b border-black pb-8">
+    <div className="relative min-h-screen overflow-x-hidden bg-white font-sans text-black selection:bg-black selection:text-white">
+      <main className="relative z-10 mx-auto max-w-7xl px-6 py-12">
+        <header className="mb-10 border-y border-black bg-white px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="header-icon flex h-10 w-10 items-center justify-center border border-black bg-black text-white">
                 <Brain className="h-5 w-5" />
               </div>
               <div>
-                <h1 ref={headerRef} className="header-title font-mono text-2xl font-bold tracking-tight">
-                  KNOWLEDGE_ENGINE
+                <h1 className="header-title text-3xl font-black tracking-tight">
+                  KNOWLEDGE ENGINE
                 </h1>
-                <p className="font-mono text-xs text-gray-500">// rag-powered ai training system</p>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                  // RAG-powered AI training system
+                </p>
               </div>
             </div>
-            <div ref={statusBadgesRef} className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
               <StatusBadge
                 label="INDEX"
                 value={indexReady ? "READY" : "EMPTY"}
@@ -536,7 +334,7 @@ export default function KnowledgePage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           {/* Upload Section */}
-          <div ref={uploadSectionRef} className="card-animate border border-black">
+          <div className="card-animate border border-black">
             <div className="border-b border-black bg-black px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -631,7 +429,7 @@ export default function KnowledgePage() {
           {/* Right Column */}
           <div className="space-y-6">
             {/* AI Identity */}
-            <div ref={aiIdentityRef} className="card-animate border border-black">
+            <div className="card-animate border border-black">
               <div className="border-b border-black bg-black px-6 py-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-white" />
@@ -691,7 +489,7 @@ export default function KnowledgePage() {
             </div>
 
             {/* Uploaded Files */}
-            <div ref={filesSectionRef} className="card-animate border border-black">
+            <div className="card-animate border border-black">
               <div className="border-b border-black bg-black px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -736,7 +534,7 @@ export default function KnowledgePage() {
           </div>
 
           {/* AI Agent Settings */}
-          <div ref={agentSectionRef} className="card-animate border border-black lg:col-span-2">
+          <div className="card-animate border border-black lg:col-span-2">
             <div className="border-b border-black bg-black px-6 py-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-white" />
@@ -822,8 +620,8 @@ export default function KnowledgePage() {
           </div>
         </div>
 
-        <footer ref={footerRef} className="mt-16 border-t border-black pt-8">
-          <div className="flex items-center justify-between font-mono text-xs text-gray-400">
+        <footer className="mt-16 border-t border-black bg-black px-6 py-8">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
             <span>KNOWLEDGE_ENGINE v1.0.0</span>
             <span>AXIOM_PLATFORM</span>
           </div>
