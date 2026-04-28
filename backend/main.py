@@ -420,6 +420,10 @@ def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
     if linked and isinstance(messages, list):
         # Step 1: Find genuinely NEW incoming messages BEFORE persisting
         new_messages = get_new_incoming_messages(tenant_id, messages)
+        if new_messages:
+            print(f"[DEBUG] Found {len(new_messages)} new incoming messages in {tenant_id}")
+            for msg in new_messages:
+                print(f"[DEBUG] New msg: jid={msg.get('jid')}, text={msg.get('text')[:50]}")
 
         # Step 2: Persist all messages
         persist_messages(tenant_id, messages)
