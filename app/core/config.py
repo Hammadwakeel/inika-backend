@@ -20,6 +20,6 @@ COOKIE_NAME = "axiom_session"
 COOKIE_SECURE = os.getenv("AXIOM_COOKIE_SECURE", "true").lower() == "true"
 
 # CORS configuration - comma-separated list of allowed origins
-_ALLOWED_ORIGINS_RAW = os.getenv("AXIOM_ALLOWED_ORIGINS", "http://localhost:3000")
+_ALLOWED_ORIGINS_RAW = os.getenv("AXIOM_ALLOWED_ORIGINS", "https://inika-resort.vercel.app,http://localhost:3000,http://localhost:3001")
 ALLOWED_ORIGINS = [origin.strip() for origin in _ALLOWED_ORIGINS_RAW.split(",") if origin.strip()]
 
