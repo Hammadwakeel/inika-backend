@@ -295,6 +295,26 @@ def get_saved_messages(tenant_id: str, jid: str | None = None) -> list[dict[str,
         conn.close()
 
 
+def get_existing_whatsapp_message_ids(tenant_id: str, message_ids: list[str]) -> tuple[int, set[str]]:
+    """Get existing message IDs from the database. Returns (total_count, existing_ids_set)."""
+    if not message_ids:
+        return 0, set()
+    db_path = tenant_db(tenant_id)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        ensure_whatsapp_message_table(conn)
+        placeholders = ",".join("?" * len(message_ids))
+        rows = conn.execute(
+            f"SELECT message_id FROM whatsapp_messages WHERE message_id IN ({placeholders})",
+            message_ids,
+        ).fetchall()
+        existing_ids = {str(row["message_id"]) for row in rows}
+        return len(message_ids), existing_ids
+    finally:
+        conn.close()
+
+
 def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
     payload = read_json_file(bridge_status_path(tenant_id), {"linked": False, "status": "pending"})
     linked = bool(payload.get("linked", False))
