@@ -185,6 +185,96 @@ def ensure_whatsapp_message_table(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def ensure_auto_reply_log_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auto_reply_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_message_id TEXT NOT NULL UNIQUE,
+            jid TEXT NOT NULL,
+            response TEXT NOT NULL DEFAULT '',
+            sent_at INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.commit()
+
+
+def get_new_incoming_messages(tenant_id: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return only genuinely NEW incoming messages that haven't been replied to yet."""
+    if not messages:
+        return []
+
+    # Get all message IDs from this batch
+    msg_ids = [m.get("message_id", "") for m in messages if m.get("message_id")]
+
+    db_path = tenant_db(tenant_id)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        ensure_whatsapp_message_table(conn)
+        ensure_auto_reply_log_table(conn)
+
+        # Find which message IDs already exist in DB
+        if msg_ids:
+            placeholders = ",".join("?" * len(msg_ids))
+            existing = conn.execute(
+                f"SELECT message_id FROM whatsapp_messages WHERE message_id IN ({placeholders})",
+                msg_ids,
+            ).fetchall()
+            existing_ids = {str(row["message_id"]) for row in existing}
+        else:
+            existing_ids = set()
+
+        # Find which messages have already been auto-replied
+        replied = conn.execute(
+            "SELECT source_message_id FROM auto_reply_log"
+        ).fetchall()
+        replied_ids = {str(row["source_message_id"]) for row in replied}
+
+        # Filter: only NEW incoming messages that haven't been replied to
+        new_incoming = []
+        for msg in messages:
+            msg_id = str(msg.get("message_id", "")).strip()
+            from_me = bool(msg.get("from_me", False))
+            jid = str(msg.get("jid", "")).strip()
+            text = str(msg.get("text", "")).strip()
+
+            if from_me or not msg_id or not text:
+                continue
+            if jid == "status@broadcast":
+                continue
+            if msg_id in existing_ids:
+                continue  # Already in DB (persisted on previous poll)
+            if msg_id in replied_ids:
+                continue  # Already auto-replied
+
+            new_incoming.append(msg)
+
+        return new_incoming
+    finally:
+        conn.close()
+
+
+def log_auto_reply(tenant_id: str, source_message_id: str, jid: str, response: str) -> None:
+    """Log that an auto-reply was sent to prevent duplicates."""
+    db_path = tenant_db(tenant_id)
+    conn = sqlite3.connect(db_path)
+    try:
+        ensure_auto_reply_log_table(conn)
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO auto_reply_log (source_message_id, jid, response, sent_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (source_message_id, jid, response, int(time.time())),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def persist_chats(tenant_id: str, chats: list[dict[str, Any]]) -> None:
     db_path = tenant_db(tenant_id)
     conn = sqlite3.connect(db_path)
@@ -317,12 +407,92 @@ def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
             if chat.get("jid")
         ]
     if linked and isinstance(messages, list):
-        # Persist messages FIRST, then check for new ones to reply
+        # Step 1: Find genuinely NEW incoming messages BEFORE persisting
+        new_messages = get_new_incoming_messages(tenant_id, messages)
+
+        # Step 2: Persist all messages
         persist_messages(tenant_id, messages)
+
+        # Step 3: Trigger auto-reply for only genuinely new messages
+        if new_messages:
+            for msg in new_messages:
+                _trigger_auto_reply(tenant_id, msg)
 
     return payload
 
 
+def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
+    """Trigger auto-reply in background thread for a new incoming message."""
+    import threading
+    from backend.app.services.memory_manager import get_agent_settings
+
+    try:
+        settings = get_agent_settings(tenant_id)
+        if not settings.get("auto_reply_enabled", False):
+            return
+    except Exception:  # noqa: BLE001
+        return
+
+    msg_id = str(message.get("message_id", "")).strip()
+    jid = str(message.get("jid", "")).strip()
+    text = str(message.get("text", "")).strip()
+
+    if not msg_id or not jid or not text:
+        return
+
+    def _do_reply():
+        try:
+            from backend.app.services.router import smart_query_router
+
+            result = smart_query_router(
+                tenant_id=tenant_id,
+                guest_id=jid,
+                user_msg=text,
+                background_tasks=None,
+                llm_timeout=25,
+            )
+
+            response_text = str(result.get("response", "")).strip()
+            if not response_text:
+                print(f"Auto-reply: empty response for {msg_id}")
+                return
+
+            # Send the reply
+            job_id = enqueue_outbound_message(tenant_id, jid, response_text)
+
+            # Persist the sent message
+            persist_messages(
+                tenant_id,
+                [{
+                    "message_id": f"auto-{msg_id}",
+                    "jid": jid,
+                    "sender": "Axiom",
+                    "text": response_text,
+                    "timestamp": int(time.time()),
+                    "from_me": True,
+                }],
+            )
+            persist_chats(
+                tenant_id,
+                [{
+                    "jid": jid,
+                    "name": jid,
+                    "last_message": response_text,
+                    "timestamp": int(time.time()),
+                }],
+            )
+
+            # Log that we replied to prevent duplicates
+            log_auto_reply(tenant_id, msg_id, jid, response_text)
+
+            print(f"Auto-reply sent: {msg_id} -> {jid}")
+
+        except TimeoutError:
+            print(f"Auto-reply timeout for {msg_id}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"Auto-reply error: {exc}")
+
+    threading.Thread(target=_do_reply, daemon=True).start()
 
 
 def enqueue_outbound_message(tenant_id: str, jid: str, text: str) -> str:
@@ -527,6 +697,61 @@ async def whatsapp_send(
         ],
     )
     return {"ok": True, "queued": True, "job_id": job_id, "tenant_id": safe_tenant, "jid": payload.jid}
+
+
+class SuggestReplyRequest(BaseModel):
+    tenant_id: str = Field(min_length=2, max_length=64)
+    jid: str = Field(min_length=3, max_length=256)
+
+
+@app.post("/whatsapp/suggest-reply")
+async def whatsapp_suggest_reply(
+    request: Request,
+    payload: SuggestReplyRequest,
+) -> dict[str, Any]:
+    """Get AI-suggested reply based on conversation context using RAG."""
+    user = get_current_user(request)
+    safe_tenant = validate_tenant_id(payload.tenant_id)
+    if safe_tenant != user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+    messages = get_saved_messages(safe_tenant, jid=payload.jid)
+    if not messages:
+        raise HTTPException(status_code=400, detail="No messages in conversation")
+
+    # Build conversation context from recent messages
+    recent_msgs = messages[-10:] if len(messages) > 10 else messages
+    conversation_context = "\n".join([
+        f"{'Guest' if not msg.get('from_me') else 'You'}: {msg.get('text', '')}"
+        for msg in recent_msgs
+        if msg.get('text')
+    ])
+
+    # Get the guest's last message for RAG query
+    guest_messages = [msg for msg in recent_msgs if not msg.get('from_me')]
+    if not guest_messages:
+        raise HTTPException(status_code=400, detail="No guest message to respond to")
+
+    last_guest_msg = guest_messages[-1].get('text', '')
+
+    # Use smart_query_router to get RAG-based response
+    from backend.app.services.router import smart_query_router
+    result = smart_query_router(
+        tenant_id=safe_tenant,
+        guest_id=payload.jid,
+        user_msg=last_guest_msg,
+        background_tasks=None,
+        llm_timeout=30,
+    )
+
+    suggested_reply = str(result.get("response", "")).strip()
+
+    return {
+        "suggested_reply": suggested_reply,
+        "source": result.get("context_source", "unknown"),
+        "confidence": result.get("rag_score", 0.0),
+        "route": result.get("route", "unknown"),
+    }
 
 
 app.include_router(knowledge_engine_router)
