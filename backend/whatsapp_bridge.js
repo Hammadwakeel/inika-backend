@@ -66,6 +66,9 @@ function extractMessageText(msg) {
     msg.imageMessage?.caption ||
     msg.videoMessage?.caption ||
     msg.documentMessage?.caption ||
+    msg.stickerMessage?.caption ||
+    msg.reactionMessage?.text ||
+    msg.protocolMessage?.caption ||
     "Recent activity"
   );
 }
@@ -135,6 +138,10 @@ async function startDaemon() {
 
     const upsertMessage = (entry) => {
       if (!entry?.message_id || !entry?.jid) return;
+
+      // Skip if we already have this message
+      if (messageMap.has(entry.message_id)) return;
+
       messageMap.set(entry.message_id, {
         message_id: entry.message_id,
         jid: entry.jid,
@@ -164,8 +171,9 @@ async function startDaemon() {
         try {
           const result = await sock.sendMessage(jid, { text });
           const timestamp = Math.floor(Date.now() / 1000);
+          const sentMsgId = result?.key?.id || `sent-${jid}-${timestamp}`;
           upsertMessage({
-            message_id: result?.key?.id || `sent-${jid}-${timestamp}`,
+            message_id: sentMsgId,
             jid,
             sender: "You",
             text,
@@ -206,6 +214,9 @@ async function startDaemon() {
         if (!jid || jid === "status@broadcast") return;
         const text = extractMessageText(message?.message);
         const timestamp = messageTimestampToNumber(message?.messageTimestamp);
+        const msgId = message?.key?.id || `${jid}-${timestamp}`;
+        const isFromMe = message?.key?.fromMe === true;
+
         upsertChat({
           jid,
           name: message?.pushName || message?.key?.participant || jid,
@@ -213,12 +224,12 @@ async function startDaemon() {
           timestamp
         });
         upsertMessage({
-          message_id: message?.key?.id || `${jid}-${timestamp}`,
+          message_id: msgId,
           jid,
-          sender: message?.pushName || message?.key?.participant || jid,
+          sender: isFromMe ? "You" : (message?.pushName || message?.key?.participant || jid),
           text,
           timestamp,
-          from_me: Boolean(message?.key?.fromMe)
+          from_me: isFromMe
         });
       });
       persistChatMap();
@@ -244,15 +255,21 @@ async function startDaemon() {
     });
 
     sock.ev.on("messages.upsert", (payload) => {
-      (payload?.messages || []).forEach((message) => {
+      const messages = payload?.messages || [];
+      console.log(`[BRIDGE] messages.upsert event: ${messages.length} messages`);
+
+      (messages || []).forEach((message) => {
         const jid = message?.key?.remoteJid;
         if (!jid || jid === "status@broadcast") return;
+
         const text = extractMessageText(message?.message);
         const timestamp = messageTimestampToNumber(message?.messageTimestamp);
-        const senderName =
-          message?.pushName ||
-          message?.key?.participant ||
-          jid;
+        const msgId = message?.key?.id;
+        const isFromMe = message?.key?.fromMe === true;
+        const senderName = isFromMe ? "You" : (message?.pushName || jid);
+
+        console.log(`[BRIDGE] Message: id=${msgId}, jid=${jid}, from_me=${isFromMe}, text="${text.substring(0, 50)}"`);
+
         upsertChat({
           jid,
           name: senderName,
@@ -260,12 +277,12 @@ async function startDaemon() {
           timestamp
         });
         upsertMessage({
-          message_id: message?.key?.id || `${jid}-${timestamp}`,
+          message_id: msgId || `${jid}-${timestamp}`,
           jid,
           sender: senderName,
           text,
           timestamp,
-          from_me: Boolean(message?.key?.fromMe)
+          from_me: isFromMe
         });
       });
       persistChatMap();
@@ -302,6 +319,7 @@ async function startDaemon() {
       if (connection === "open") {
         reconnecting = false;
         linked = true;
+        console.log("[BRIDGE] Connected to WhatsApp");
         // Reset reconnect attempts on successful connection
         writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 });
         writeJson(statusFile, {
@@ -332,6 +350,7 @@ async function startDaemon() {
 
       if (connection === "close") {
         linked = false;
+        console.log("[BRIDGE] Disconnected");
         const reason = lastDisconnect?.error?.message || "connection_closed";
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
@@ -345,7 +364,6 @@ async function startDaemon() {
           reconnecting = true;
           const baseDelay = 1000; // 1 second
           const maxDelay = 300000; // 5 minutes
-          const attemptKey = `reconnect_attempts_${tenantId}`;
           let attempts = parseInt(readJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts: 0 }).attempts || 0, 10);
           attempts++;
           writeJson(path.join(tenantDir, "reconnect-attempts.json"), { attempts });
@@ -355,6 +373,7 @@ async function startDaemon() {
           const jitter = Math.random() * 1000;
           const actualDelay = delay + jitter;
 
+          console.log(`[BRIDGE] Reconnecting in ${Math.round(actualDelay / 1000)}s (attempt ${attempts})`);
           writeJson(statusFile, {
             tenant_id: tenantId,
             linked: false,
@@ -364,6 +383,7 @@ async function startDaemon() {
 
           setTimeout(() => {
             startSocket().catch((err) => {
+              console.error(`[BRIDGE] Restart failed: ${err?.message || err}`);
               writeJson(statusFile, {
                 tenant_id: tenantId,
                 linked: false,
