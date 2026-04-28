@@ -69,7 +69,6 @@ logs/
 
 # WhatsApp session data (per-tenant, not committed)
 data/tenants/*/
-!data/tenants/.gitkeep
 
 # Temporary files
 *.tmp
@@ -87,12 +86,6 @@ uploads/
 # Database (SQLite)
 *.db
 *.db-journal
-
-# SSL Certificates (real ones, not committed)
-nginx/ssl/*.pem
-nginx/ssl/*.key
-nginx/ssl/*.crt
-!nginx/ssl/.gitkeep
 
 # Docker
 .docker/
