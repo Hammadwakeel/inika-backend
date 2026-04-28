@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 from backend.app.core.tenant import tenant_db_path
-from backend.app.services.auth_service import get_tenant_conn
+from backend.app.services.auth import get_tenant_conn
 from backend.app.services.llm_service import chat_completion
 
 
@@ -235,10 +235,10 @@ def set_tenant_setting(tenant_id: str, key: str, value: str) -> None:
 
 
 def get_rag_threshold(tenant_id: str) -> float:
-    value = get_tenant_setting(tenant_id, "rag_threshold", "0.7")
+    value = get_tenant_setting(tenant_id, "rag_threshold", "0.15")
     try:
         threshold = float(value)
         return max(0.0, min(1.0, threshold))
     except (ValueError, TypeError):
-        return 0.7
+        return 0.15
 

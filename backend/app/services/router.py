@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import BackgroundTasks
 
-from backend.app.services.auth_service import get_tenant_conn
+from backend.app.services.auth import get_tenant_conn
 from backend.app.services.llm_service import chat_completion
 from backend.app.services.memory_manager import (
     append_session_message,
@@ -126,21 +126,60 @@ def smart_query_router(
     live_query = is_live_information_query(user_msg)
     rag_threshold = get_rag_threshold(tenant_id)
 
+    # Also try wiki search as additional context source
+    wiki_context = []
+    wiki_score = 0.0
+    try:
+        from backend.wiki_engine import search_wiki
+        wiki_context, wiki_score = search_wiki(tenant_id, user_msg, top_k=2)
+    except Exception:  # noqa: BLE001
+        pass
+
     context_rows = rag_context
     route = "RAG"
-    if live_query or rag_score < rag_threshold:
-        route = "WEB_SEARCH"
-        reason = "LIVE_INFO_QUERY" if live_query else "LOW_RAG_SCORE"
+    context_source = "faiss"
+
+    # Determine best context: prefer RAG if score is reasonable, otherwise wiki, otherwise web
+    use_rag = rag_score >= rag_threshold and rag_context
+    use_wiki = wiki_score >= 0.3 and wiki_context and not use_rag
+
+    if use_rag:
         log_search_event(
             tenant_id=tenant_id,
             session_id=session_id,
             user_query=user_msg,
             event_type="ROUTING",
-            detail=f"TRIGGERING_WEB_SEARCH ({reason})",
+            detail=f"USING_RAG_CONTEXT (score={rag_score:.3f})",
             score=rag_score,
             source="router",
         )
+        context_source = "faiss"
+    elif use_wiki:
+        context_rows = wiki_context
+        context_source = "wiki"
+        log_search_event(
+            tenant_id=tenant_id,
+            session_id=session_id,
+            user_query=user_msg,
+            event_type="ROUTING",
+            detail=f"USING_WIKI_CONTEXT (score={wiki_score:.3f})",
+            score=wiki_score,
+            source="router",
+        )
+    elif live_query:
+        # Only use web search for live queries (weather, news, sports, etc.)
+        route = "WEB_SEARCH"
         context_rows = web_search(query=user_msg, max_results=5)
+        context_source = "web"
+        log_search_event(
+            tenant_id=tenant_id,
+            session_id=session_id,
+            user_query=user_msg,
+            event_type="ROUTING",
+            detail=f"TRIGGERING_WEB_SEARCH (LIVE_INFO_QUERY)",
+            score=rag_score,
+            source="router",
+        )
         log_search_event(
             tenant_id=tenant_id,
             session_id=session_id,
@@ -150,29 +189,65 @@ def smart_query_router(
             source="web",
         )
     else:
-        log_search_event(
-            tenant_id=tenant_id,
-            session_id=session_id,
-            user_query=user_msg,
-            event_type="ROUTING",
-            detail="USING_RAG_CONTEXT",
-            score=rag_score,
-            source="router",
-        )
+        # No RAG or wiki results, but NOT a live query - use what we have
+        # Don't fall back to web search for general questions about the hotel
+        if rag_context:
+            log_search_event(
+                tenant_id=tenant_id,
+                session_id=session_id,
+                user_query=user_msg,
+                event_type="ROUTING",
+                detail=f"USING_RAG_CONTEXT_BELOW_THRESHOLD (score={rag_score:.3f}, threshold={rag_threshold})",
+                score=rag_score,
+                source="router",
+            )
+        elif wiki_context:
+            context_rows = wiki_context
+            context_source = "wiki"
+            log_search_event(
+                tenant_id=tenant_id,
+                session_id=session_id,
+                user_query=user_msg,
+                event_type="ROUTING",
+                detail=f"USING_WIKI_CONTEXT (score={wiki_score:.3f})",
+                score=wiki_score,
+                source="router",
+            )
+        else:
+            log_search_event(
+                tenant_id=tenant_id,
+                session_id=session_id,
+                user_query=user_msg,
+                event_type="ROUTING",
+                detail="NO_CONTEXT_FOUND_USING_EMPTY_CONTEXT",
+                score=rag_score,
+                source="router",
+            )
 
     context_block = _build_context_block(context_rows)
     history_block = _build_history_block(history_rows)
+
+    # Build hotel-specific system prompt
+    base_identity = identity.get('base_identity', '') or 'You are a helpful hotel concierge assistant.'
+    behavioral_rules = identity.get('behavioral_rules', '') or (
+        '1. Always answer questions about the hotel using the provided context\n'
+        '2. Be friendly, helpful, and concise\n'
+        '3. If the answer is not in the context, say you do not have that information\n'
+        '4. Do not make up information about the hotel'
+    )
+
     final_system_prompt = (
-        "You are the Axiom Multi-Tenant AI Concierge.\n\n"
-        f"[Base Identity]\n{identity.get('base_identity', '')}\n\n"
-        f"[Behavioral Rules]\n{identity.get('behavioral_rules', '')}\n\n"
-        "Follow identity and behavioral rules strictly."
+        f"You are a hotel concierge assistant.\n\n"
+        f"{base_identity}\n\n"
+        f"Guidelines:\n{behavioral_rules}\n\n"
+        "IMPORTANT: Use the Retrieved Context below to answer questions about the hotel. "
+        "If the context does not contain the answer, politely say you do not have that information. "
+        "Do NOT provide generic hotel industry information."
     )
     final_user_prompt = (
-        f"[Session Summary]\n{summary or 'No summary yet.'}\n\n"
-        f"[Last 10 Messages]\n{history_block or 'No prior messages.'}\n\n"
-        f"[Retrieved Context]\n{context_block or 'No context available.'}\n\n"
-        f"[Current Query]\n{user_msg}"
+        f"[Retrieved Context - Use this to answer]\n{context_block or 'No context available.'}\n\n"
+        f"[Previous Conversation]\n{history_block or 'No prior messages.'}\n\n"
+        f"[Guest Question]\n{user_msg}"
     )
 
     log_search_event(
@@ -196,7 +271,11 @@ def smart_query_router(
         "session_id": session_id,
         "route": route,
         "rag_score": rag_score,
+        "rag_threshold": rag_threshold,
+        "wiki_score": wiki_score,
         "live_query": live_query,
+        "context_source": context_source,
+        "context_count": len(context_rows),
         "context": context_rows,
         "response": assistant_response,
     }
