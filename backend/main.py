@@ -5,7 +5,6 @@ import os
 import shutil
 import sqlite3
 import subprocess
-import threading
 import time
 import asyncio
 from pathlib import Path
@@ -27,8 +26,6 @@ from backend.app.routes.proactive import router as proactive_router
 from backend.app.routes.booking import router as booking_router
 from backend.app.routes.journey import router as journey_router
 from backend.knowledge_engine import router as knowledge_engine_router
-from backend.app.services.memory_manager import get_agent_settings
-from backend.app.services.router import smart_query_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TENANTS_ROOT = BASE_DIR / "data" / "tenants"
@@ -295,26 +292,6 @@ def get_saved_messages(tenant_id: str, jid: str | None = None) -> list[dict[str,
         conn.close()
 
 
-def get_existing_whatsapp_message_ids(tenant_id: str, message_ids: list[str]) -> tuple[int, set[str]]:
-    """Get existing message IDs from the database. Returns (total_count, existing_ids_set)."""
-    if not message_ids:
-        return 0, set()
-    db_path = tenant_db(tenant_id)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
-        ensure_whatsapp_message_table(conn)
-        placeholders = ",".join("?" * len(message_ids))
-        rows = conn.execute(
-            f"SELECT message_id FROM whatsapp_messages WHERE message_id IN ({placeholders})",
-            message_ids,
-        ).fetchall()
-        existing_ids = {str(row["message_id"]) for row in rows}
-        return len(message_ids), existing_ids
-    finally:
-        conn.close()
-
-
 def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
     payload = read_json_file(bridge_status_path(tenant_id), {"linked": False, "status": "pending"})
     linked = bool(payload.get("linked", False))
@@ -340,94 +317,12 @@ def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
             if chat.get("jid")
         ]
     if linked and isinstance(messages, list):
-        # Check for new incoming messages and trigger auto-reply
-        _process_new_messages_for_auto_reply(tenant_id, messages)
+        # Persist messages FIRST, then check for new ones to reply
         persist_messages(tenant_id, messages)
 
     return payload
 
 
-def _process_new_messages_for_auto_reply(tenant_id: str, messages: list[dict[str, Any]]) -> None:
-    """Process new incoming messages and trigger auto-reply if enabled."""
-    try:
-        # Check if auto-reply is enabled
-        settings = get_agent_settings(tenant_id)
-        if not settings.get("auto_reply_enabled", False):
-            return
-    except Exception:  # noqa: BLE001
-        return
-
-    # Get existing message IDs to filter only new messages
-    existing_ids = get_existing_whatsapp_message_ids(tenant_id, [m.get("message_id", "") for m in messages])
-    existing_id_set = existing_ids[1] if isinstance(existing_ids, tuple) else set()
-
-    for message in messages:
-        msg_id = str(message.get("message_id", "")).strip()
-        jid = str(message.get("jid", "")).strip()
-        text = str(message.get("text", "")).strip()
-        from_me = bool(message.get("from_me", False))
-
-        # Skip if already processed or outbound message
-        if from_me or not msg_id or msg_id in existing_id_set or jid == "status@broadcast":
-            continue
-
-        # Trigger auto-reply in a background thread
-        threading.Thread(
-            target=_send_auto_reply,
-            args=(tenant_id, msg_id, jid, text),
-            daemon=True,
-        ).start()
-
-
-def _send_auto_reply(tenant_id: str, source_message_id: str, jid: str, user_text: str) -> None:
-    """Send auto-reply using the smart query router."""
-    try:
-        guest_id = jid
-
-        result = smart_query_router(
-            tenant_id=tenant_id,
-            guest_id=guest_id,
-            user_msg=user_text,
-            background_tasks=None,
-            llm_timeout=20,  # 20 second timeout for auto-reply
-        )
-
-        response_text = str(result.get("response", "")).strip()
-        if not response_text:
-            print(f"Auto-reply: empty response for {source_message_id}")
-            return
-
-        job_id = enqueue_outbound_message(tenant_id, jid, response_text)
-
-        persist_messages(
-            tenant_id,
-            [
-                {
-                    "message_id": f"queued-{job_id}",
-                    "jid": jid,
-                    "sender": "Axiom",
-                    "text": response_text,
-                    "timestamp": int(time.time()),
-                    "from_me": True,
-                }
-            ],
-        )
-        persist_chats(
-            tenant_id,
-            [
-                {
-                    "jid": jid,
-                    "name": jid,
-                    "last_message": response_text,
-                    "timestamp": int(time.time()),
-                }
-            ],
-        )
-        print(f"Auto-reply sent: {source_message_id} -> {jid}")
-    except TimeoutError as exc:
-        print(f"Auto-reply timeout: {exc}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"Auto-reply error: {exc}")
 
 
 def enqueue_outbound_message(tenant_id: str, jid: str, text: str) -> str:
