@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.wiki_engine import get_related_pages, search_wiki
+from wiki_engine import get_related_pages, search_wiki
 
 
 def wiki_search(

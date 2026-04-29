@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.services.migrations import check_migrations_needed, run_migrations
+from app.core.tenant import validate_tenant_id
+from app.services.migrations import check_migrations_needed, run_migrations
 
 router = APIRouter(prefix="/migrations", tags=["migrations"])
 

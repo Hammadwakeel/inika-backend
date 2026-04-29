@@ -8,7 +8,7 @@ Handles token substitution and evening activity rotation.
 import re
 from typing import Any
 
-from backend.app.services.journey_timing import night_count
+from app.services.journey_timing import night_count
 
 
 EVENING_ACTIVITIES = [

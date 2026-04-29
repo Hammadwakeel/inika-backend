@@ -14,18 +14,18 @@ from fastapi import Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.main import app
-from backend.app.routes.auth_middleware import TokenData, get_current_user
-from backend.message_dispatcher import router as dispatcher_router
-from backend.app.routes.sse_streamer import router as sse_streamer_router
-from backend.app.routes.settings import router as settings_router
-from backend.app.routes.health import router as health_router
-from backend.app.routes.migrations import router as migrations_router
-from backend.app.routes.proactive import router as proactive_router
-from backend.app.routes.booking import router as booking_router
-from backend.app.routes.journey import router as journey_router
-from backend.knowledge_engine import router as knowledge_engine_router
+from app.core.tenant import validate_tenant_id
+from app.main import app
+from app.routes.auth_middleware import TokenData, get_current_user
+from message_dispatcher import router as dispatcher_router
+from app.routes.sse_streamer import router as sse_streamer_router
+from app.routes.settings import router as settings_router
+from app.routes.health import router as health_router
+from app.routes.migrations import router as migrations_router
+from app.routes.proactive import router as proactive_router
+from app.routes.booking import router as booking_router
+from app.routes.journey import router as journey_router
+from knowledge_engine import router as knowledge_engine_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TENANTS_ROOT = BASE_DIR / "data" / "tenants"
@@ -442,7 +442,7 @@ def sync_tenant_data(tenant_id: str) -> dict[str, Any]:
 def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
     """Trigger auto-reply in background thread for a new incoming message."""
     import threading
-    from backend.app.services.memory_manager import get_agent_settings
+    from app.services.memory_manager import get_agent_settings
 
     msg_id = str(message.get("message_id", "")).strip()
     jid = str(message.get("jid", "")).strip()
@@ -469,7 +469,7 @@ def _trigger_auto_reply(tenant_id: str, message: dict[str, Any]) -> None:
         log_auto_reply(tenant_id, jid, msg_id, "[pending]")
 
         try:
-            from backend.app.services.router import smart_query_router
+            from app.services.router import smart_query_router
 
             result = smart_query_router(
                 tenant_id=tenant_id,
@@ -759,7 +759,7 @@ async def whatsapp_suggest_reply(
     last_guest_msg = guest_messages[-1].get('text', '')
 
     # Use smart_query_router to get RAG-based response
-    from backend.app.services.router import smart_query_router
+    from app.services.router import smart_query_router
     result = smart_query_router(
         tenant_id=safe_tenant,
         guest_id=payload.jid,

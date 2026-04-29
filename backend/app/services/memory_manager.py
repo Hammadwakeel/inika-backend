@@ -7,9 +7,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
 
-from backend.app.core.tenant import tenant_db_path
-from backend.app.services.auth import get_tenant_conn
-from backend.app.services.llm_service import chat_completion
+from app.core.tenant import tenant_db_path
+from app.services.auth import get_tenant_conn
+from app.services.llm_service import chat_completion
 
 
 def ensure_session_schema(tenant_id: str) -> None:

@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
-from backend.app.core.config import COOKIE_NAME
-from backend.app.services.auth import decode_token
+from app.core.config import COOKIE_NAME
+from app.services.auth import decode_token
 
 
 class TokenData(BaseModel):

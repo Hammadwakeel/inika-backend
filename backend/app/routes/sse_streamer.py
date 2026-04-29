@@ -6,8 +6,8 @@ import json
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.services.router import get_recent_search_logs
+from app.core.tenant import validate_tenant_id
+from app.services.router import get_recent_search_logs
 
 router = APIRouter(prefix="/dispatcher", tags=["dispatcher"])
 

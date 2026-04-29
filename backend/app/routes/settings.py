@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Query
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.services.memory_manager import (
+from app.core.tenant import validate_tenant_id
+from app.services.memory_manager import (
     get_agent_settings,
     get_rag_threshold,
     set_agent_settings,

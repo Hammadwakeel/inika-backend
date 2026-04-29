@@ -8,7 +8,7 @@ Builds dynamic prompts with full guest context and generates personalized messag
 import os
 from typing import Any
 
-from backend.app.services.llm_service import chat_completion
+from app.services.llm_service import chat_completion
 
 
 JOURNEY_SYSTEM_PROMPT = """You are Axiom, an AI concierge for Inika Resorts in Coorg, Karnataka, India.
@@ -52,7 +52,7 @@ def build_guest_context(booking: dict, extras: dict | None = None) -> str:
     check_out = booking.get("check_out", "") or booking.get("coutdate", "")
 
     # Stay details
-    from backend.app.services.journey_timing import night_count
+    from app.services.journey_timing import night_count
     nights = night_count(check_in, check_out)
     guest_count = int(booking.get("guest_count", booking.get("gcount", "1") or "1"))
 
@@ -231,7 +231,7 @@ def generate_journey_message(
     guest_context = build_guest_context(booking, extras)
 
     # Get time of day
-    from backend.app.services.journey_timing import get_ist_mode, now_ist
+    from app.services.journey_timing import get_ist_mode, now_ist
     time_of_day = get_ist_mode(now_ist())
 
     # Build prompt

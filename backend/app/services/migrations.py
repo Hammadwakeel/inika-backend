@@ -4,7 +4,7 @@ import sqlite3
 import time
 from typing import Any
 
-from backend.app.services.auth_service import get_tenant_conn
+from app.services.auth_service import get_tenant_conn
 
 
 MIGRATIONS: list[tuple[int, str, str]] = [

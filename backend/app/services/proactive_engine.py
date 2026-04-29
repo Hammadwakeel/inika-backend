@@ -6,9 +6,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from backend.app.core.tenant import TENANTS_ROOT, validate_tenant_id
-from backend.app.services.auth_service import get_tenant_conn
-from backend.app.services.llm_service import chat_completion
+from app.core.tenant import TENANTS_ROOT, validate_tenant_id
+from app.services.auth_service import get_tenant_conn
+from app.services.llm_service import chat_completion
 
 
 MESSAGE_TEMPLATES = {

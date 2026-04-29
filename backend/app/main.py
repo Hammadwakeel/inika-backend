@@ -4,13 +4,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from backend.app.core.config import ALLOWED_ORIGINS
-from backend.app.routes.auth import router as auth_router
-from backend.app.routes.journey import router as journey_router
-from backend.app.routes.booking import router as booking_router
-from backend.app.routes.dashboard import router as dashboard_router
-from backend.app.routes.rag import router as rag_router
-from backend.app.routes.health import router as health_router
+from app.core.config import ALLOWED_ORIGINS
+from app.routes.auth import router as auth_router
+from app.routes.journey import router as journey_router
+from app.routes.booking import router as booking_router
+from app.routes.dashboard import router as dashboard_router
+from app.routes.rag import router as rag_router
+from app.routes.health import router as health_router
 
 app = FastAPI(title="Axiom Platform API", version="1.0.0-AXIOM")
 

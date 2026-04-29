@@ -12,14 +12,14 @@ import time
 from datetime import datetime
 from typing import Any
 
-from backend.app.core.tenant import TENANTS_ROOT, validate_tenant_id
-from backend.app.services.auth_service import get_tenant_conn
-from backend.app.services.booking_client import get_active_guests, sync_guests_to_db, fetch_todays_bookings
-from backend.app.services.journey_personalization import select_evening_activity
-from backend.app.services.journey_state import JourneyState
-from backend.app.services.journey_timing import compute_touchpoints, get_active_checkin_touchpoint, is_in_window, is_quiet_hours, now_ist, ist_date_str
-from backend.app.services.journey_weather import get_weather
-from backend.app.services.journey_llm_generator import generate_journey_message
+from app.core.tenant import TENANTS_ROOT, validate_tenant_id
+from app.services.auth_service import get_tenant_conn
+from app.services.booking_client import get_active_guests, sync_guests_to_db, fetch_todays_bookings
+from app.services.journey_personalization import select_evening_activity
+from app.services.journey_state import JourneyState
+from app.services.journey_timing import compute_touchpoints, get_active_checkin_touchpoint, is_in_window, is_quiet_hours, now_ist, ist_date_str
+from app.services.journey_weather import get_weather
+from app.services.journey_llm_generator import generate_journey_message
 
 logger = logging.getLogger(__name__)
 
@@ -281,14 +281,14 @@ async def run_journey_for_tenant(tenant_id: str, dry_run: bool = False) -> dict[
 
 def is_tomorrow_checkout(checkout: str, today: str) -> bool:
     """Check if today is the day after checkout."""
-    from backend.app.services.journey_timing import add_days, parse_ist_date
+    from app.services.journey_timing import add_days, parse_ist_date
     next_day = add_days(checkout, 1)
     return next_day == today
 
 
 def day_number(check_in: str, today: str) -> int:
     """Compute which day of stay today is (0-indexed from check-in)."""
-    from backend.app.services.journey_timing import parse_ist_date, ist_date_str
+    from app.services.journey_timing import parse_ist_date, ist_date_str
     a = parse_ist_date(check_in)
     b = parse_ist_date(today)
     days = (b - a).days if b >= a else 0

@@ -8,10 +8,10 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from backend.app.core.config import TENANTS_ROOT
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.models.schemas import LoginRequest, TokenResponse
-from backend.app.services.auth_service import (
+from app.core.config import TENANTS_ROOT
+from app.core.tenant import validate_tenant_id
+from app.models.schemas import LoginRequest, TokenResponse
+from app.services.auth_service import (
     create_access_token,
     get_tenant_conn,
     hash_password,
@@ -178,7 +178,7 @@ def login(payload: LoginRequest, response: Response, request: Request) -> TokenR
         init_auth_attempts_table(conn)
         clear_failed_attempts(conn, payload.username, ip_address)
 
-    from backend.app.core.config import COOKIE_NAME, COOKIE_SECURE, JWT_EXPIRE_MINUTES
+    from app.core.config import COOKIE_NAME, COOKIE_SECURE, JWT_EXPIRE_MINUTES
 
     logger.info(f"Login successful for user: {payload.username}")
     token, expires_at = create_access_token(subject=row["username"], tenant_id=tenant_id)
@@ -237,7 +237,7 @@ def bootstrap_user(payload: LoginRequest) -> dict:
 
 @router.post("/auth/logout")
 def logout(response: Response) -> dict:
-    from backend.app.core.config import COOKIE_NAME
+    from app.core.config import COOKIE_NAME
 
     response.delete_cookie(key=COOKIE_NAME, path="/")
     return {"message": "Logged out successfully"}

@@ -5,9 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.routes.auth_middleware import TokenData, get_current_user
-from backend.app.services.proactive_engine import ProactiveEngine, run_proactive_engine
+from app.core.tenant import validate_tenant_id
+from app.routes.auth_middleware import TokenData, get_current_user
+from app.services.proactive_engine import ProactiveEngine, run_proactive_engine
 
 router = APIRouter(prefix="/proactive", tags=["proactive"])
 

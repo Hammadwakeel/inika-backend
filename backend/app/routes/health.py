@@ -19,7 +19,7 @@ class HealthStatus(BaseModel):
 
 def check_database(tenant_id: str | None = None) -> dict[str, str | bool]:
     try:
-        from backend.app.services.auth_service import get_tenant_conn
+        from app.services.auth_service import get_tenant_conn
 
         if tenant_id:
             with get_tenant_conn(tenant_id) as conn:
@@ -32,7 +32,7 @@ def check_database(tenant_id: str | None = None) -> dict[str, str | bool]:
 
 def check_whatsapp_bridge(tenant_id: str) -> dict[str, str | bool]:
     try:
-        from backend.main import bridge_status_path, read_json_file
+        from main import bridge_status_path, read_json_file
 
         status_file = bridge_status_path(tenant_id)
         if not status_file.exists():
@@ -54,7 +54,7 @@ def check_whatsapp_bridge(tenant_id: str) -> dict[str, str | bool]:
 
 def check_vector_index(tenant_id: str) -> dict[str, str | bool]:
     try:
-        from backend.knowledge_engine import index_path
+        from knowledge_engine import index_path
 
         idx_path = index_path(tenant_id)
         exists = idx_path.exists()
@@ -146,8 +146,8 @@ async def liveness_check() -> dict:
 @router.get("/health/ready")
 async def readiness_check() -> dict:
     try:
-        from backend.app.core.config import JWT_SECRET
-        from backend.app.services.auth_service import get_tenant_conn
+        from app.core.config import JWT_SECRET
+        from app.services.auth_service import get_tenant_conn
 
         return {"status": "ready", "timestamp": int(time.time())}
     except Exception as e:

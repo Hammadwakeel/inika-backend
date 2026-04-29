@@ -9,8 +9,8 @@ from typing import Generator
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from backend.app.core.config import ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
-from backend.app.core.tenant import tenant_db_path
+from app.core.config import ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
+from app.core.tenant import tenant_db_path
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 

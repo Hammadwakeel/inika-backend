@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel
 
-from backend.app.routes.auth_middleware import get_current_user, TokenData
+from app.routes.auth_middleware import get_current_user, TokenData
 
 router = APIRouter(tags=["dashboard"])
 
@@ -28,7 +28,7 @@ class DashboardStatus(BaseModel):
 def get_whatsapp_status(tenant_id: str | None) -> dict:
     """Check WhatsApp bridge status."""
     try:
-        from backend.main import bridge_status_path, read_json_file
+        from main import bridge_status_path, read_json_file
 
         if not tenant_id:
             return {
@@ -72,7 +72,7 @@ def get_whatsapp_status(tenant_id: str | None) -> dict:
 def get_knowledge_status(tenant_id: str | None) -> dict:
     """Check Knowledge Engine status."""
     try:
-        from backend.knowledge_engine import index_path, chunks_path, read_status, list_uploaded_files
+        from knowledge_engine import index_path, chunks_path, read_status, list_uploaded_files
 
         if not tenant_id:
             return {
@@ -129,7 +129,7 @@ def get_journey_status(tenant_id: str | None) -> dict:
                 "stats": {"active": 0, "templates": 5, "running": 0}
             }
 
-        from backend.app.services.auth_service import get_tenant_conn
+        from app.services.auth_service import get_tenant_conn
 
         with get_tenant_conn(tenant_id) as conn:
             result = conn.execute("""
@@ -180,7 +180,7 @@ def get_booking_status(tenant_id: str | None) -> dict:
                 "stats": {"today": 0, "upcoming": 0, "pending": 0}
             }
 
-        from backend.app.services.auth_service import get_tenant_conn
+        from app.services.auth_service import get_tenant_conn
         from datetime import date
 
         today = date.today().isoformat()

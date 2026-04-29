@@ -19,7 +19,7 @@ from typing import Any, Iterator
 import faiss
 import numpy as np
 
-from backend.app.services.llm_service import chat_completion, embed_texts
+from app.services.llm_service import chat_completion, embed_texts
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TENANTS_ROOT = BASE_DIR / "data" / "tenants"

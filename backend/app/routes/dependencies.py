@@ -4,8 +4,8 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query, Request, status
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.routes.auth_middleware import TokenData, get_current_user
+from app.core.tenant import validate_tenant_id
+from app.routes.auth_middleware import TokenData, get_current_user
 
 
 def require_tenant(tenant_id: str = Query(..., min_length=2, max_length=64)) -> str:

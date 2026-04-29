@@ -13,20 +13,20 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.services.auth_service import get_tenant_conn
-from backend.app.services.llm_service import chat_completion
-from backend.app.services.memory_manager import (
+from app.core.tenant import validate_tenant_id
+from app.services.auth_service import get_tenant_conn
+from app.services.llm_service import chat_completion
+from app.services.memory_manager import (
     append_session_message,
     ensure_session_schema,
     get_or_create_session,
     get_recent_messages,
     get_session_summary,
 )
-from backend.app.services.search_tool import is_live_information_query, rag_search, web_search
-from backend.app.services.wiki_search import format_wiki_context, wiki_search
-from backend.knowledge_engine import get_identity_prompts
-from backend.wiki_engine import (
+from app.services.search_tool import is_live_information_query, rag_search, web_search
+from app.services.wiki_search import format_wiki_context, wiki_search
+from knowledge_engine import get_identity_prompts
+from wiki_engine import (
     build_wiki,
     get_index,
     get_schema,

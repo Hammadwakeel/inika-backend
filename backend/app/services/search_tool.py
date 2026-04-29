@@ -10,9 +10,9 @@ import faiss
 import numpy as np
 from tavily import TavilyClient
 
-from backend.app.services.llm_service import embed_texts
-from backend.app.services.memory_manager import get_rag_threshold as _get_rag_threshold
-from backend.knowledge_engine import load_index_and_chunks
+from app.services.llm_service import embed_texts
+from app.services.memory_manager import get_rag_threshold as _get_rag_threshold
+from knowledge_engine import load_index_and_chunks
 
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")

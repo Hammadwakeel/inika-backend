@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.services.router import smart_query_router
+from app.core.tenant import validate_tenant_id
+from app.services.router import smart_query_router
 
 router = APIRouter(prefix="/dispatcher", tags=["dispatcher"])
 

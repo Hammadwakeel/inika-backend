@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from backend.app.core.config import DB_FILENAME, TENANTS_ROOT
+from app.core.config import DB_FILENAME, TENANTS_ROOT
 
 TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{2,64}$")
 

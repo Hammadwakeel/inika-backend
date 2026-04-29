@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.routes.auth_middleware import TokenData, get_current_user, require_super_admin
-from backend.app.services.auth_service import get_tenant_conn
-from backend.app.services.journey_scheduler import JourneyScheduler, run_all_tenants, run_journey_for_tenant
-from backend.app.services.booking_client import get_active_guests
+from app.core.tenant import validate_tenant_id
+from app.routes.auth_middleware import TokenData, get_current_user, require_super_admin
+from app.services.auth_service import get_tenant_conn
+from app.services.journey_scheduler import JourneyScheduler, run_all_tenants, run_journey_for_tenant
+from app.services.booking_client import get_active_guests
 
 router = APIRouter(prefix="/journey", tags=["journey"])
 

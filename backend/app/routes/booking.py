@@ -6,9 +6,9 @@ from typing import Annotated, Any, AsyncIterator
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.responses import StreamingResponse
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.routes.auth_middleware import TokenData, get_current_user
-from backend.app.services.booking_client import (
+from app.core.tenant import validate_tenant_id
+from app.routes.auth_middleware import TokenData, get_current_user
+from app.services.booking_client import (
     fetch_guest_inventory,
     get_active_guests,
     get_guest_by_mobile,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.app.services.journey_personalization import apply_personalization
+from app.services.journey_personalization import apply_personalization
 
 
 TEMPLATE = """Happy lunch hour, [Name]! 🍽️

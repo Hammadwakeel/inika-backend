@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, TypedDict
 
-from backend.app.core.tenant import TENANTS_ROOT, validate_tenant_id
+from app.core.tenant import TENANTS_ROOT, validate_tenant_id
 
 
 class OptOutEntry(TypedDict):

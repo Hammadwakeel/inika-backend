@@ -4,8 +4,8 @@ from fastapi import Cookie, Depends, HTTPException, Query, Request, status
 from fastapi.security import APIKeyCookie
 from pydantic import BaseModel
 
-from backend.app.core.config import COOKIE_NAME
-from backend.app.services.auth_service import decode_token
+from app.core.config import COOKIE_NAME
+from app.services.auth_service import decode_token
 
 
 class TokenData(BaseModel):

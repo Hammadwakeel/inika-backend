@@ -15,9 +15,9 @@ from pydantic import BaseModel, Field
 import zipfile
 import io
 
-from backend.app.core.tenant import validate_tenant_id
-from backend.app.routes.auth_middleware import TokenData, get_current_user
-from backend.app.services.llm_service import chat_completion, embed_texts
+from app.core.tenant import validate_tenant_id
+from app.routes.auth_middleware import TokenData, get_current_user
+from app.services.llm_service import chat_completion, embed_texts
 
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])

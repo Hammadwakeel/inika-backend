@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.app.services.journey_templates import (
+from app.services.journey_templates import (
     checkin_morning,
     checkin_afternoon,
     checkin_evening,

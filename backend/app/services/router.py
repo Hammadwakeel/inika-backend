@@ -5,9 +5,9 @@ from typing import Any
 
 from fastapi import BackgroundTasks
 
-from backend.app.services.auth import get_tenant_conn
-from backend.app.services.llm_service import chat_completion
-from backend.app.services.memory_manager import (
+from app.services.auth import get_tenant_conn
+from app.services.llm_service import chat_completion
+from app.services.memory_manager import (
     append_session_message,
     ensure_session_schema,
     get_agent_settings,
@@ -18,8 +18,8 @@ from backend.app.services.memory_manager import (
     get_session_summary,
     summarize_session_window,
 )
-from backend.app.services.search_tool import is_live_information_query, rag_search, web_search
-from backend.knowledge_engine import get_identity_prompts
+from app.services.search_tool import is_live_information_query, rag_search, web_search
+from knowledge_engine import get_identity_prompts
 
 
 def log_search_event(
@@ -140,7 +140,7 @@ def smart_query_router(
 
         # Also try wiki search as additional context source
         try:
-            from backend.wiki_engine import search_wiki
+            from wiki_engine import search_wiki
             wiki_context, wiki_score = search_wiki(tenant_id, user_msg, top_k=2)
         except Exception:  # noqa: BLE001
             pass
