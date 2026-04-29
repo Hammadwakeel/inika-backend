@@ -46,42 +46,70 @@ export default function LoginContent() {
     setNotice(null);
 
     try {
+      console.log("API_BASE_URL:", API_BASE_URL);
       const body = JSON.stringify({ tenant_id: tenantId, username, password });
+      console.log("Request body:", body);
 
       if (mode === "signup") {
+        console.log("Calling bootstrap...");
         const signupResponse = await fetch(`${API_BASE_URL}/auth/bootstrap`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body,
         });
+        console.log("Bootstrap status:", signupResponse.status);
 
         if (!signupResponse.ok) {
-          const data = (await signupResponse.json().catch(() => null)) as { detail?: string } | null;
-          throw new Error(data?.detail ?? "Sign up failed.");
+          const text = await signupResponse.text();
+          console.error("Bootstrap error:", text);
+          throw new Error(text || "Sign up failed.");
         }
+        const signupDataText = await signupResponse.text();
+        console.log("Bootstrap raw response:", signupDataText);
+        let signupData: { message?: string; tenant_id?: string } = {};
+        try {
+          signupData = JSON.parse(signupDataText);
+        } catch (e) {
+          console.error("Failed to parse bootstrap response:", e);
+        }
+        console.log("Bootstrap response:", signupData);
         setNotice("Account created. Logging in...");
       }
 
+      console.log("Calling login...");
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body,
       });
+      console.log("Login status:", response.status);
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { detail?: string } | null;
-        throw new Error(data?.detail ?? (mode === "signup" ? "Sign up failed." : "Authentication failed."));
+        const text = await response.text();
+        console.error("Login error response:", text);
+        throw new Error(text || (mode === "signup" ? "Sign up failed." : "Authentication failed."));
       }
 
-      const data = await response.json();
+      const dataText = await response.text();
+      console.log("Login raw response:", dataText);
+      let data: { access_token?: string } = {};
+      try {
+        data = JSON.parse(dataText);
+      } catch (e) {
+        console.error("Failed to parse login response:", e);
+      }
+      console.log("Login response:", data);
       window.localStorage.setItem("axiom_tenant_id", tenantId);
       window.localStorage.setItem("axiom_token", data.access_token || "");
       window.localStorage.setItem("axiom_username", username);
       router.push("/dashboard");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unexpected error.");
+      console.error("Submit error:", submitError);
+      const message = submitError instanceof Error ? submitError.message : "Unexpected error.";
+      console.error("Error message:", message);
+      setError(message);
     } finally {
       setFormLoading(false);
     }
