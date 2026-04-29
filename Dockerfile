@@ -31,17 +31,16 @@ WORKDIR /app/backend
 RUN npm install --production || npm install || true
 WORKDIR /app
 
+# Create directories for tenant data BEFORE switching to non-root user
+RUN mkdir -p /app/data/tenants && chown -R 65532:65532 /app/data
+
 # Cloud Run injects PORT env var (default 8080)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1
 
 # Non-root user for security
-RUN useradd -m -u 65532 appuser
 USER appuser
-
-# Create directories for tenant data (after user switch)
-RUN mkdir -p /app/data/tenants
 
 EXPOSE 8080
 
